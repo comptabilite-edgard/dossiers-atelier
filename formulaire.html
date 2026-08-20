@@ -23,10 +23,11 @@ select.etat-select{border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;fo
 .filter-btn.active{background:#B8982A;color:white;border-color:#B8982A}
 .filter-btn:hover:not(.active){background:#F5F4EF}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:6px 8px;border-bottom:2px solid #e5e3da;text-align:left;cursor:pointer;user-select:none}
-td{padding:6px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:top}
-.comment-input{width:100%;border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px}
+th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:4px 8px;border-bottom:2px solid #e5e3da;text-align:left;cursor:pointer;user-select:none}
+td{padding:3px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:middle;position:relative}
+.comment-input{width:100%;border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;resize:none;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;box-sizing:border-box;background:white}
 .comment-input.required{border-color:#B8982A;background:#FAEEDA}
+.comment-input.expanded{position:absolute;left:0;top:0;width:280px;max-width:60vw;height:auto;min-height:60px;max-height:200px;overflow:auto;white-space:pre-wrap;z-index:30;box-shadow:0 4px 16px rgba(0,0,0,0.15);background:white}
 .badge-verre{background:#E8EEFB;color:#2C4A8C}
 .badge-livraison{background:#FAEEDA;color:#633806}
 .badge-facture{background:#F1EAFB;color:#5A3A8C}
@@ -34,11 +35,12 @@ td{padding:6px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:top}
 .stat{background:#F5F4EF;border-radius:8px;padding:8px 12px;font-size:12px;flex:1;min-width:100px;text-align:center}
 .stat strong{display:block;font-size:1.4rem;font-weight:600;color:#B8982A}
 .stat small{display:block;font-size:11px;color:#5F5E5A;margin-top:2px}
-tr.row-valide{background:#FBF8EF}
-.valide-btn{background:none;border:1.5px solid #d3d1c7;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#d3d1c7;font-size:15px;transition:all 0.15s;margin:0 auto}
-.valide-btn.on{background:#B8982A;border-color:#B8982A;color:white}
-.valide-btn:hover{border-color:#B8982A;color:#B8982A}
+tr.row-valide{background:#EAF3DE}
+.valide-btn{background:none;border:1.5px solid #d3d1c7;border-radius:50%;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#d3d1c7;font-size:14px;transition:all 0.15s;margin:0 auto}
+.valide-btn.on{background:#3B6D11;border-color:#3B6D11;color:white}
+.valide-btn:hover{border-color:#3B6D11;color:#3B6D11}
 .valide-btn.on:hover{color:white}
+.badge-annule{background:#EFE7DE;color:#6B5B4D}
 .btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s}
 .btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
 .btn-primary{background:#B8982A;color:white}
@@ -67,6 +69,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
       <button class="filter-btn" onclick="setFilter('attente_verre',this)">En attente de verre</button>
       <button class="filter-btn" onclick="setFilter('attente_livraison',this)">En attente de livraison</button>
       <button class="filter-btn" onclick="setFilter('livre_non_facture',this)">Livré non facturé</button>
+      <button class="filter-btn" onclick="setFilter('annule_devis',this)">Annulé / Remise en devis</button>
     </div>
     <div style="overflow-x:auto">
       <table>
@@ -167,7 +170,7 @@ function sortBy(field){
 }
 
 function commentaireObligatoire(d){
-  if(d.etat === 'livre_non_facture') return true;
+  if(d.etat === 'livre_non_facture' || d.etat === 'annule_devis') return true;
   if(d.etat === 'attente_livraison' || d.etat === 'attente_verre'){
     const dt = parseDateFr(d.mise_en_vente);
     if(dt && dt < dateSeuil()) return true;
@@ -175,8 +178,12 @@ function commentaireObligatoire(d){
   return false;
 }
 
+function aTraiter(d){
+  return !d.valide || (commentaireObligatoire(d) && !d.commentaire);
+}
+
 function afficherDossiers(){
-  let list = dossiers.filter(d=> currentFilter==='all' || (currentFilter==='a_traiter' ? !d.valide : d.etat===currentFilter));
+  let list = dossiers.filter(d=> currentFilter==='all' || (currentFilter==='a_traiter' ? aTraiter(d) : d.etat===currentFilter));
   if(sortField){
     list = list.slice().sort((a,b)=>{
       if(sortField==='client'){
@@ -194,18 +201,34 @@ function afficherDossiers(){
     return '<tr class="'+(d.valide?'row-valide':'')+'">'+
       '<td>'+d.nom_client+' '+d.prenom_client+'</td>'+
       '<td>'+d.mise_en_vente+'</td>'+
-      '<td style="text-align:right">'+(d.prix_vente||'')+'</td>'+
-      '<td style="text-align:right">'+(d.prix_achat_monture||'')+'</td>'+
+      '<td style="text-align:center">'+(d.prix_vente!==''&&d.prix_vente!=null?d.prix_vente+' €':'')+'</td>'+
+      '<td style="text-align:center">'+(d.prix_achat_monture!==''&&d.prix_achat_monture!=null?d.prix_achat_monture+' €':'')+'</td>'+
       '<td><select class="etat-select" onchange="updateEtat(\''+d.id+'\',this.value)">'+
         '<option value="attente_verre" '+(d.etat==='attente_verre'?'selected':'')+'>En attente de verre</option>'+
         '<option value="attente_livraison" '+(d.etat==='attente_livraison'?'selected':'')+'>En attente de livraison</option>'+
         '<option value="livre_non_facture" '+(d.etat==='livre_non_facture'?'selected':'')+'>Livré non facturé</option>'+
+        '<option value="annule_devis" '+(d.etat==='annule_devis'?'selected':'')+'>Dossier annulé / Remise en devis</option>'+
       '</select></td>'+
-      '<td><input type="text" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" value="'+(d.commentaire||'').replace(/"/g,'&quot;')+'" oninput="updateCommentaire(\''+d.id+'\',this.value)"></td>'+
+      '<td><textarea rows="1" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" oninput="updateCommentaire(\''+d.id+'\',this.value);autoGrow(this)" onfocus="expandComment(this)" onblur="collapseComment(this)">'+(d.commentaire||'').replace(/</g,'&lt;')+'</textarea></td>'+
       '<td style="text-align:center"><button type="button" class="valide-btn'+(d.valide?' on':'')+'" onclick="toggleValide(\''+d.id+'\')" title="'+(d.valide?'Dossier validé':'Marquer comme validé')+'"><i class="ti ti-check"></i></button></td>'+
     '</tr>';
   }).join('');
   afficherStats();
+}
+
+function expandComment(el){
+  el.classList.add('expanded');
+  el.style.whiteSpace = 'pre-wrap';
+  autoGrow(el);
+}
+function collapseComment(el){
+  el.classList.remove('expanded');
+  el.removeAttribute('style');
+}
+function autoGrow(el){
+  if(!el.classList.contains('expanded')) return;
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200)+'px';
 }
 
 function toggleValide(id){
@@ -220,19 +243,21 @@ function parsePrix(v){
 }
 
 function afficherStats(){
-  const parEtat = {attente_verre:{n:0,total:0}, attente_livraison:{n:0,total:0}, livre_non_facture:{n:0,total:0}};
+  const parEtat = {attente_verre:{n:0,total:0}, attente_livraison:{n:0,total:0}, livre_non_facture:{n:0,total:0}, annule_devis:{n:0,total:0}};
   dossiers.forEach(d=>{ parEtat[d.etat].n++; parEtat[d.etat].total += parsePrix(d.prix_vente); });
   const fmt = n => n.toLocaleString('fr-FR')+' €';
   document.getElementById('stats-dossiers').innerHTML =
     '<div class="stat"><strong>'+dossiers.length+'</strong>Dossiers</div>'+
     '<div class="stat"><strong>'+parEtat.attente_verre.n+'</strong>En attente de verre<small>'+fmt(parEtat.attente_verre.total)+'</small></div>'+
     '<div class="stat"><strong>'+parEtat.attente_livraison.n+'</strong>En attente de livraison<small>'+fmt(parEtat.attente_livraison.total)+'</small></div>'+
-    '<div class="stat"><strong>'+parEtat.livre_non_facture.n+'</strong>Livré non facturé<small>'+fmt(parEtat.livre_non_facture.total)+'</small></div>';
-  const nbValides = dossiers.filter(d=>d.valide).length;
+    '<div class="stat"><strong>'+parEtat.livre_non_facture.n+'</strong>Livré non facturé<small>'+fmt(parEtat.livre_non_facture.total)+'</small></div>'+
+    '<div class="stat"><strong>'+parEtat.annule_devis.n+'</strong>Annulé / Devis<small>'+fmt(parEtat.annule_devis.total)+'</small></div>';
+  const nbATraiter = dossiers.filter(aTraiter).length;
+  const nbValides = dossiers.length - nbATraiter;
   const prog = document.getElementById('progress-valide');
   if(prog){
-    prog.innerHTML = nbValides === dossiers.length
-      ? '<i class="ti ti-check" style="color:#B8982A"></i> Tous les dossiers sont validés ('+nbValides+'/'+dossiers.length+').'
+    prog.innerHTML = nbATraiter === 0
+      ? '<i class="ti ti-check" style="color:#3B6D11"></i> Tous les dossiers sont validés ('+dossiers.length+'/'+dossiers.length+').'
       : nbValides+' / '+dossiers.length+' dossiers validés — l\'envoi sera possible une fois tous les dossiers traités.';
   }
 }
@@ -285,6 +310,7 @@ function buildXlsxBase64(){
 function etatLabel(e){
   if(e==='attente_verre') return 'En attente de verre';
   if(e==='attente_livraison') return 'En attente de livraison';
+  if(e==='annule_devis') return 'Dossier annulé / Remise en devis';
   return 'Livré non facturé';
 }
 
@@ -295,23 +321,13 @@ function validateEnvoi(){
       '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>Merci de renseigner votre nom et prénom.</div>';
     return;
   }
-  const nonValides = dossiers.filter(d=> !d.valide);
-  if(nonValides.length){
+  const restants = dossiers.filter(aTraiter);
+  if(restants.length){
     document.getElementById('alert-envoi').innerHTML =
-      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+nonValides.length+' dossier(s) restent à valider (bouton ✓) avant l\'envoi.</div>';
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+restants.length+' dossier(s) restent à traiter (validation ou commentaire attendu) avant l\'envoi.</div>';
     currentFilter='a_traiter';
     document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.filter-btn')[1].classList.add('active');
-    afficherDossiers();
-    return;
-  }
-  const manquants = dossiers.filter(d=> commentaireObligatoire(d) && !d.commentaire);
-  if(manquants.length){
-    document.getElementById('alert-envoi').innerHTML =
-      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+manquants.length+' dossier(s) nécessitent un commentaire avant l\'envoi (voir les champs en surbrillance).</div>';
-    currentFilter='all';
-    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelector('.filter-btn').classList.add('active');
     afficherDossiers();
     return;
   }
