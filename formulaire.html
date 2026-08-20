@@ -33,6 +33,12 @@ td{padding:6px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:top}
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .stat{background:#F5F4EF;border-radius:8px;padding:8px 12px;font-size:12px;flex:1;min-width:100px;text-align:center}
 .stat strong{display:block;font-size:1.4rem;font-weight:600;color:#B8982A}
+.stat small{display:block;font-size:11px;color:#5F5E5A;margin-top:2px}
+tr.row-valide{background:#FBF8EF}
+.valide-btn{background:none;border:1.5px solid #d3d1c7;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#d3d1c7;font-size:15px;transition:all 0.15s;margin:0 auto}
+.valide-btn.on{background:#B8982A;border-color:#B8982A;color:white}
+.valide-btn:hover{border-color:#B8982A;color:#B8982A}
+.valide-btn.on:hover{color:white}
 .btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s}
 .btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
 .btn-primary{background:#B8982A;color:white}
@@ -57,6 +63,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
     <div id="stats-dossiers" class="stat-row"></div>
     <div class="filter-row" id="filter-row">
       <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
+      <button class="filter-btn" onclick="setFilter('a_traiter',this)">À traiter</button>
       <button class="filter-btn" onclick="setFilter('attente_verre',this)">En attente de verre</button>
       <button class="filter-btn" onclick="setFilter('attente_livraison',this)">En attente de livraison</button>
       <button class="filter-btn" onclick="setFilter('livre_non_facture',this)">Livré non facturé</button>
@@ -71,6 +78,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
             <th style="text-align:right">PRIX ACHAT MONTURE</th>
             <th>ÉTAT</th>
             <th>COMMENTAIRE</th>
+            <th style="text-align:center">VALIDÉ</th>
           </tr>
         </thead>
         <tbody id="dossiers-tbody"></tbody>
@@ -80,6 +88,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
 
   <div class="card" id="card-envoi" style="display:none">
     <div class="card-title"><i class="ti ti-signature"></i>Signature et envoi</div>
+    <div id="progress-valide" style="font-size:12px;color:#5F5E5A;margin-bottom:12px"></div>
     <div id="alert-envoi"></div>
     <label>Nom et prénom du directeur / de la directrice *</label>
     <input type="text" id="sig-nom" placeholder="Nom Prénom">
@@ -129,6 +138,7 @@ function chargerDossiers(){
         return;
       }
       dossiers = JSON.parse(data.dossiers || '[]');
+      dossiers.forEach(d=>{ if(typeof d.valide === 'undefined') d.valide = false; });
       document.getElementById('card-dossiers').style.display = 'block';
       document.getElementById('card-envoi').style.display = 'block';
       afficherDossiers();
@@ -166,7 +176,7 @@ function commentaireObligatoire(d){
 }
 
 function afficherDossiers(){
-  let list = dossiers.filter(d=> currentFilter==='all' || d.etat===currentFilter);
+  let list = dossiers.filter(d=> currentFilter==='all' || (currentFilter==='a_traiter' ? !d.valide : d.etat===currentFilter));
   if(sortField){
     list = list.slice().sort((a,b)=>{
       if(sortField==='client'){
@@ -181,7 +191,7 @@ function afficherDossiers(){
   const tbody = document.getElementById('dossiers-tbody');
   tbody.innerHTML = list.map(d=>{
     const obligatoire = commentaireObligatoire(d);
-    return '<tr>'+
+    return '<tr class="'+(d.valide?'row-valide':'')+'">'+
       '<td>'+d.nom_client+' '+d.prenom_client+'</td>'+
       '<td>'+d.mise_en_vente+'</td>'+
       '<td style="text-align:right">'+(d.prix_vente||'')+'</td>'+
@@ -191,21 +201,40 @@ function afficherDossiers(){
         '<option value="attente_livraison" '+(d.etat==='attente_livraison'?'selected':'')+'>En attente de livraison</option>'+
         '<option value="livre_non_facture" '+(d.etat==='livre_non_facture'?'selected':'')+'>Livré non facturé</option>'+
       '</select></td>'+
-      '<td><input type="text" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire obligatoire':'Commentaire')+'" value="'+(d.commentaire||'').replace(/"/g,'&quot;')+'" oninput="updateCommentaire(\''+d.id+'\',this.value)"></td>'+
+      '<td><input type="text" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" value="'+(d.commentaire||'').replace(/"/g,'&quot;')+'" oninput="updateCommentaire(\''+d.id+'\',this.value)"></td>'+
+      '<td style="text-align:center"><button type="button" class="valide-btn'+(d.valide?' on':'')+'" onclick="toggleValide(\''+d.id+'\')" title="'+(d.valide?'Dossier validé':'Marquer comme validé')+'"><i class="ti ti-check"></i></button></td>'+
     '</tr>';
   }).join('');
   afficherStats();
 }
 
+function toggleValide(id){
+  const d = dossiers.find(x=>x.id===id);
+  if(d) d.valide = !d.valide;
+  afficherDossiers();
+}
+
+function parsePrix(v){
+  const n = parseFloat(String(v).replace(',','.').replace(/[^\d.-]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+
 function afficherStats(){
-  const nbVerre = dossiers.filter(d=>d.etat==='attente_verre').length;
-  const nbLivraison = dossiers.filter(d=>d.etat==='attente_livraison').length;
-  const nbFacture = dossiers.filter(d=>d.etat==='livre_non_facture').length;
+  const parEtat = {attente_verre:{n:0,total:0}, attente_livraison:{n:0,total:0}, livre_non_facture:{n:0,total:0}};
+  dossiers.forEach(d=>{ parEtat[d.etat].n++; parEtat[d.etat].total += parsePrix(d.prix_vente); });
+  const fmt = n => n.toLocaleString('fr-FR')+' €';
   document.getElementById('stats-dossiers').innerHTML =
     '<div class="stat"><strong>'+dossiers.length+'</strong>Dossiers</div>'+
-    '<div class="stat"><strong>'+nbVerre+'</strong>En attente de verre</div>'+
-    '<div class="stat"><strong>'+nbLivraison+'</strong>En attente de livraison</div>'+
-    '<div class="stat"><strong>'+nbFacture+'</strong>Livré non facturé</div>';
+    '<div class="stat"><strong>'+parEtat.attente_verre.n+'</strong>En attente de verre<small>'+fmt(parEtat.attente_verre.total)+'</small></div>'+
+    '<div class="stat"><strong>'+parEtat.attente_livraison.n+'</strong>En attente de livraison<small>'+fmt(parEtat.attente_livraison.total)+'</small></div>'+
+    '<div class="stat"><strong>'+parEtat.livre_non_facture.n+'</strong>Livré non facturé<small>'+fmt(parEtat.livre_non_facture.total)+'</small></div>';
+  const nbValides = dossiers.filter(d=>d.valide).length;
+  const prog = document.getElementById('progress-valide');
+  if(prog){
+    prog.innerHTML = nbValides === dossiers.length
+      ? '<i class="ti ti-check" style="color:#B8982A"></i> Tous les dossiers sont validés ('+nbValides+'/'+dossiers.length+').'
+      : nbValides+' / '+dossiers.length+' dossiers validés — l\'envoi sera possible une fois tous les dossiers traités.';
+  }
 }
 
 function updateEtat(id, val){
@@ -266,10 +295,20 @@ function validateEnvoi(){
       '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>Merci de renseigner votre nom et prénom.</div>';
     return;
   }
+  const nonValides = dossiers.filter(d=> !d.valide);
+  if(nonValides.length){
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+nonValides.length+' dossier(s) restent à valider (bouton ✓) avant l\'envoi.</div>';
+    currentFilter='a_traiter';
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.filter-btn')[1].classList.add('active');
+    afficherDossiers();
+    return;
+  }
   const manquants = dossiers.filter(d=> commentaireObligatoire(d) && !d.commentaire);
   if(manquants.length){
     document.getElementById('alert-envoi').innerHTML =
-      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+manquants.length+' dossier(s) nécessitent un commentaire avant l\'envoi (voir les champs en rouge).</div>';
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+manquants.length+' dossier(s) nécessitent un commentaire avant l\'envoi (voir les champs en surbrillance).</div>';
     currentFilter='all';
     document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
     document.querySelector('.filter-btn').classList.add('active');
