@@ -26,7 +26,13 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:6px 8px;border-bottom:2px solid #e5e3da;text-align:left;cursor:pointer;user-select:none}
 td{padding:6px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:top}
 .comment-input{width:100%;border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px}
-.comment-input.required{border-color:#A32D2D;background:#FCEBEB}
+.comment-input.required{border-color:#B8982A;background:#FAEEDA}
+.badge-verre{background:#E8EEFB;color:#2C4A8C}
+.badge-livraison{background:#FAEEDA;color:#633806}
+.badge-facture{background:#F1EAFB;color:#5A3A8C}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:#F5F4EF;border-radius:8px;padding:8px 12px;font-size:12px;flex:1;min-width:100px;text-align:center}
+.stat strong{display:block;font-size:1.4rem;font-weight:600;color:#B8982A}
 .btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s}
 .btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
 .btn-primary{background:#B8982A;color:white}
@@ -48,6 +54,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
 
   <div class="card" id="card-dossiers" style="display:none">
     <div class="card-title"><i class="ti ti-list-check"></i>Dossiers commandés non facturés</div>
+    <div id="stats-dossiers" class="stat-row"></div>
     <div class="filter-row" id="filter-row">
       <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
       <button class="filter-btn" onclick="setFilter('attente_verre',this)">En attente de verre</button>
@@ -60,6 +67,8 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
           <tr>
             <th onclick="sortBy('client')">CLIENT <span id="sort-client"></span></th>
             <th onclick="sortBy('date')">MISE EN VENTE <span id="sort-date"></span></th>
+            <th style="text-align:right">PRIX VENTE</th>
+            <th style="text-align:right">PRIX ACHAT MONTURE</th>
             <th>ÉTAT</th>
             <th>COMMENTAIRE</th>
           </tr>
@@ -173,8 +182,10 @@ function afficherDossiers(){
   tbody.innerHTML = list.map(d=>{
     const obligatoire = commentaireObligatoire(d);
     return '<tr>'+
-      '<td>'+d.prenom_client+' '+d.nom_client+'</td>'+
+      '<td>'+d.nom_client+' '+d.prenom_client+'</td>'+
       '<td>'+d.mise_en_vente+'</td>'+
+      '<td style="text-align:right">'+(d.prix_vente||'')+'</td>'+
+      '<td style="text-align:right">'+(d.prix_achat_monture||'')+'</td>'+
       '<td><select class="etat-select" onchange="updateEtat(\''+d.id+'\',this.value)">'+
         '<option value="attente_verre" '+(d.etat==='attente_verre'?'selected':'')+'>En attente de verre</option>'+
         '<option value="attente_livraison" '+(d.etat==='attente_livraison'?'selected':'')+'>En attente de livraison</option>'+
@@ -183,6 +194,18 @@ function afficherDossiers(){
       '<td><input type="text" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire obligatoire':'Commentaire')+'" value="'+(d.commentaire||'').replace(/"/g,'&quot;')+'" oninput="updateCommentaire(\''+d.id+'\',this.value)"></td>'+
     '</tr>';
   }).join('');
+  afficherStats();
+}
+
+function afficherStats(){
+  const nbVerre = dossiers.filter(d=>d.etat==='attente_verre').length;
+  const nbLivraison = dossiers.filter(d=>d.etat==='attente_livraison').length;
+  const nbFacture = dossiers.filter(d=>d.etat==='livre_non_facture').length;
+  document.getElementById('stats-dossiers').innerHTML =
+    '<div class="stat"><strong>'+dossiers.length+'</strong>Dossiers</div>'+
+    '<div class="stat"><strong>'+nbVerre+'</strong>En attente de verre</div>'+
+    '<div class="stat"><strong>'+nbLivraison+'</strong>En attente de livraison</div>'+
+    '<div class="stat"><strong>'+nbFacture+'</strong>Livré non facturé</div>';
 }
 
 function updateEtat(id, val){
@@ -223,7 +246,7 @@ function clearSig(){ sigCtx.clearRect(0,0,document.getElementById('sig-canvas').
 function buildXlsxBase64(){
   const data = [['Client','Type équipement','Mise en vente le','Date de livraison','Verres réceptionnés','Prix de vente','Prix achat monture','État','Commentaire']];
   dossiers.forEach(d=>{
-    data.push([d.prenom_client+' '+d.nom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, d.prix_vente, d.prix_achat_monture, etatLabel(d.etat), d.commentaire||'']);
+    data.push([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, d.prix_vente, d.prix_achat_monture, etatLabel(d.etat), d.commentaire||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();

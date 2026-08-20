@@ -27,9 +27,9 @@ select,input[type=file]{width:100%;border:1px solid #d3d1c7;border-radius:8px;pa
 .preview-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:6px 8px;border-bottom:2px solid #e5e3da;text-align:left}
 .preview-table td{padding:6px 8px;border-bottom:0.5px solid #f0ede4}
 .badge-etat{border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;white-space:nowrap}
-.badge-verre{background:#FCEBEB;color:#A32D2D}
+.badge-verre{background:#E8EEFB;color:#2C4A8C}
 .badge-livraison{background:#FAEEDA;color:#633806}
-.badge-facture{background:#EAF3DE;color:#3B6D11}
+.badge-facture{background:#F1EAFB;color:#5A3A8C}
 .alert{border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px}
 .alert-warn{background:#FAEEDA;color:#633806}.alert-success{background:#EAF3DE;color:#3B6D11}
 .alert-error{background:#FCEBEB;color:#A32D2D}
@@ -82,7 +82,7 @@ select,input[type=file]{width:100%;border:1px solid #d3d1c7;border-radius:8px;pa
     <div id="alert-preview"></div>
     <div style="max-height:400px;overflow-y:auto;border:1px solid #e5e3da;border-radius:8px">
       <table class="preview-table">
-        <thead><tr><th>Client</th><th>Mise en vente</th><th>Verres réceptionnés</th><th>État par défaut</th></tr></thead>
+        <thead><tr><th>Client</th><th>Mise en vente</th><th style="text-align:right">Prix vente</th><th style="text-align:right">Prix achat monture</th><th>Verres réceptionnés</th><th>État par défaut</th></tr></thead>
         <tbody id="preview-tbody"></tbody>
       </table>
     </div>
@@ -199,7 +199,9 @@ function afficherPreview(){
     '<div class="stat"><strong>'+nbLivraison+'</strong>En attente de livraison</div>';
   const tbody = document.getElementById('preview-tbody');
   tbody.innerHTML = dossiers.map(d=>
-    '<tr><td>'+d.prenom_client+' '+d.nom_client+'</td><td>'+d.mise_en_vente+'</td><td>'+d.verres_receptionnes+'</td>'+
+    '<tr><td>'+d.nom_client+' '+d.prenom_client+'</td><td>'+d.mise_en_vente+'</td>'+
+    '<td style="text-align:right">'+(d.prix_vente||'')+'</td><td style="text-align:right">'+(d.prix_achat_monture||'')+'</td>'+
+    '<td>'+d.verres_receptionnes+'</td>'+
     '<td><span class="badge-etat '+etatBadgeClass(d.etat)+'">'+etatLabel(d.etat)+'</span></td></tr>'
   ).join('');
 }
