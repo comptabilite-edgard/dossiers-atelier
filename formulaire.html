@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dossiers commandés non facturés</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#F5F4EF;color:#1a1a18;min-height:100vh;padding:1.5rem}
+.wrap{max-width:900px;margin:0 auto}
+.header{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-size:1.1rem;font-weight:600;letter-spacing:1px}.logo .gold{color:#B8982A}
+.badge{background:#FAEEDA;color:#633806;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500}
+.card{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888780;margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+label{font-size:12px;color:#888780;display:block;margin-bottom:4px}
+input[type=text],textarea{width:100%;border:1px solid #d3d1c7;border-radius:8px;padding:8px 10px;font-size:13px;background:white;color:#1a1a18;margin-bottom:12px;font-family:inherit}
+select.etat-select{border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px;background:white}
+.filter-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.filter-btn{font-size:12px;padding:4px 12px;border-radius:20px;border:0.5px solid #d3d1c7;background:none;cursor:pointer;color:#5F5E5A;transition:all 0.15s}
+.filter-btn.active{background:#B8982A;color:white;border-color:#B8982A}
+.filter-btn:hover:not(.active){background:#F5F4EF}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:6px 8px;border-bottom:2px solid #e5e3da;text-align:left;cursor:pointer;user-select:none}
+td{padding:6px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:top}
+.comment-input{width:100%;border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px}
+.comment-input.required{border-color:#A32D2D;background:#FCEBEB}
+.btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s}
+.btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
+.btn-primary{background:#B8982A;color:white}
+.alert{border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px}
+.alert-warn{background:#FAEEDA;color:#633806}.alert-success{background:#EAF3DE;color:#3B6D11}
+.alert-error{background:#FCEBEB;color:#A32D2D}
+canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-action:none;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo"><span class="gold">EDGARD</span> OPTICIENS</div>
+    <div class="badge" id="mag-badge">Magasin : …</div>
+  </div>
+
+  <div id="alert-load"></div>
+
+  <div class="card" id="card-dossiers" style="display:none">
+    <div class="card-title"><i class="ti ti-list-check"></i>Dossiers commandés non facturés</div>
+    <div class="filter-row" id="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
+      <button class="filter-btn" onclick="setFilter('attente_verre',this)">En attente de verre</button>
+      <button class="filter-btn" onclick="setFilter('attente_livraison',this)">En attente de livraison</button>
+      <button class="filter-btn" onclick="setFilter('livre_non_facture',this)">Livré non facturé</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('client')">CLIENT <span id="sort-client"></span></th>
+            <th onclick="sortBy('date')">MISE EN VENTE <span id="sort-date"></span></th>
+            <th>ÉTAT</th>
+            <th>COMMENTAIRE</th>
+          </tr>
+        </thead>
+        <tbody id="dossiers-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="card-envoi" style="display:none">
+    <div class="card-title"><i class="ti ti-signature"></i>Signature et envoi</div>
+    <div id="alert-envoi"></div>
+    <label>Nom et prénom du directeur / de la directrice *</label>
+    <input type="text" id="sig-nom" placeholder="Nom Prénom">
+    <label>Signature *</label>
+    <canvas id="sig-canvas"></canvas>
+    <button class="btn" style="background:none;border:1px solid #d3d1c7;color:#5F5E5A;margin-bottom:8px" onclick="clearSig()"><i class="ti ti-eraser"></i> Effacer</button>
+    <button class="btn btn-primary" id="btn-envoyer" onclick="validateEnvoi()">
+      <i class="ti ti-send" style="font-size:16px"></i> Envoyer à Déborah
+    </button>
+  </div>
+
+  <div id="card-resultat" style="display:none" class="card"></div>
+</div>
+
+<script>
+let dossiers = [];
+let magasin = '';
+let token = '';
+let currentFilter = 'all';
+let sortField = null;
+let sortDir = 1;
+let sigCtx, drawing = false;
+
+const params = new URLSearchParams(window.location.search);
+magasin = params.get('magasin') || '';
+token = params.get('token') || '';
+document.getElementById('mag-badge').textContent = 'Magasin : ' + (magasin || '?');
+
+function dateSeuil(){
+  // 30/09/2026 moins un mois = 31/08/2026 : les dossiers "mis en vente" avant cette date exigent un commentaire
+  return new Date(2026,7,31);
+}
+function parseDateFr(str){
+  if(!str) return null;
+  const p = String(str).split('/');
+  if(p.length !== 3) return null;
+  return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+}
+
+function chargerDossiers(){
+  fetch('https://edgard-opticiens.app.n8n.cloud/webhook/dossiers-get-formulaire?magasin='+encodeURIComponent(magasin)+'&token='+encodeURIComponent(token))
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status !== 'ok'){
+        document.getElementById('alert-load').innerHTML =
+          '<div class="alert alert-error"><i class="ti ti-alert-circle"></i>Lien invalide ou expiré. Merci de contacter le service comptabilité.</div>';
+        return;
+      }
+      dossiers = JSON.parse(data.dossiers || '[]');
+      document.getElementById('card-dossiers').style.display = 'block';
+      document.getElementById('card-envoi').style.display = 'block';
+      afficherDossiers();
+      initSig();
+    })
+    .catch(e=>{
+      document.getElementById('alert-load').innerHTML =
+        '<div class="alert alert-error"><i class="ti ti-alert-circle"></i>Erreur réseau : '+e.message+'</div>';
+    });
+}
+chargerDossiers();
+
+function setFilter(f, btn){
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  afficherDossiers();
+}
+
+function sortBy(field){
+  if(sortField === field) sortDir *= -1; else { sortField = field; sortDir = 1; }
+  document.getElementById('sort-client').textContent = '';
+  document.getElementById('sort-date').textContent = '';
+  document.getElementById('sort-'+(field==='client'?'client':'date')).textContent = sortDir===1 ? '▲' : '▼';
+  afficherDossiers();
+}
+
+function commentaireObligatoire(d){
+  if(d.etat === 'livre_non_facture') return true;
+  if(d.etat === 'attente_livraison' || d.etat === 'attente_verre'){
+    const dt = parseDateFr(d.mise_en_vente);
+    if(dt && dt < dateSeuil()) return true;
+  }
+  return false;
+}
+
+function afficherDossiers(){
+  let list = dossiers.filter(d=> currentFilter==='all' || d.etat===currentFilter);
+  if(sortField){
+    list = list.slice().sort((a,b)=>{
+      if(sortField==='client'){
+        const na=(a.nom_client+a.prenom_client).toLowerCase(), nb=(b.nom_client+b.prenom_client).toLowerCase();
+        return na<nb ? -1*sortDir : na>nb ? 1*sortDir : 0;
+      }else{
+        const da=parseDateFr(a.mise_en_vente), db=parseDateFr(b.mise_en_vente);
+        return ((da?da.getTime():0)-(db?db.getTime():0))*sortDir;
+      }
+    });
+  }
+  const tbody = document.getElementById('dossiers-tbody');
+  tbody.innerHTML = list.map(d=>{
+    const obligatoire = commentaireObligatoire(d);
+    return '<tr>'+
+      '<td>'+d.prenom_client+' '+d.nom_client+'</td>'+
+      '<td>'+d.mise_en_vente+'</td>'+
+      '<td><select class="etat-select" onchange="updateEtat(\''+d.id+'\',this.value)">'+
+        '<option value="attente_verre" '+(d.etat==='attente_verre'?'selected':'')+'>En attente de verre</option>'+
+        '<option value="attente_livraison" '+(d.etat==='attente_livraison'?'selected':'')+'>En attente de livraison</option>'+
+        '<option value="livre_non_facture" '+(d.etat==='livre_non_facture'?'selected':'')+'>Livré non facturé</option>'+
+      '</select></td>'+
+      '<td><input type="text" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire obligatoire':'Commentaire')+'" value="'+(d.commentaire||'').replace(/"/g,'&quot;')+'" oninput="updateCommentaire(\''+d.id+'\',this.value)"></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function updateEtat(id, val){
+  const d = dossiers.find(x=>x.id===id);
+  if(d) d.etat = val;
+  afficherDossiers();
+}
+function updateCommentaire(id, val){
+  const d = dossiers.find(x=>x.id===id);
+  if(d) d.commentaire = val;
+}
+
+function initSig(){
+  const canvas = document.getElementById('sig-canvas');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = 150;
+  sigCtx = canvas.getContext('2d');
+  sigCtx.strokeStyle = '#1a1a18';
+  sigCtx.lineWidth = 2;
+  sigCtx.lineCap = 'round';
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return {x:p.clientX-r.left, y:p.clientY-r.top};
+  }
+  function start(e){ drawing=true; const p=pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); e.preventDefault(); }
+  function move(e){ if(!drawing) return; const p=pos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); e.preventDefault(); }
+  function end(){ drawing=false; }
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start);
+  canvas.addEventListener('touchmove', move);
+  canvas.addEventListener('touchend', end);
+}
+function clearSig(){ sigCtx.clearRect(0,0,document.getElementById('sig-canvas').width,document.getElementById('sig-canvas').height); }
+
+function buildXlsxBase64(){
+  const data = [['Client','Type équipement','Mise en vente le','Date de livraison','Verres réceptionnés','Prix de vente','Prix achat monture','État','Commentaire']];
+  dossiers.forEach(d=>{
+    data.push([d.prenom_client+' '+d.nom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, d.prix_vente, d.prix_achat_monture, etatLabel(d.etat), d.commentaire||'']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Dossiers non factures');
+  return XLSX.write(wb, {type:'base64', bookType:'xlsx'});
+}
+function etatLabel(e){
+  if(e==='attente_verre') return 'En attente de verre';
+  if(e==='attente_livraison') return 'En attente de livraison';
+  return 'Livré non facturé';
+}
+
+function validateEnvoi(){
+  const nom = document.getElementById('sig-nom').value.trim();
+  if(!nom){
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>Merci de renseigner votre nom et prénom.</div>';
+    return;
+  }
+  const manquants = dossiers.filter(d=> commentaireObligatoire(d) && !d.commentaire);
+  if(manquants.length){
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>'+manquants.length+' dossier(s) nécessitent un commentaire avant l\'envoi (voir les champs en rouge).</div>';
+    currentFilter='all';
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelector('.filter-btn').classList.add('active');
+    afficherDossiers();
+    return;
+  }
+  const btn = document.getElementById('btn-envoyer');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.8s linear infinite;display:inline-block"></i> Envoi en cours…';
+  const xlsxData = buildXlsxBase64();
+  fetch('https://edgard-opticiens.app.n8n.cloud/webhook/dossiers-reception',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      magasin: magasin,
+      nom_directeur: nom,
+      nb_dossiers: dossiers.length,
+      xlsx_base64: xlsxData,
+      date: new Date().toLocaleDateString('fr-FR')
+    })
+  }).then(r=>r.json()).then(()=>{
+    document.getElementById('card-dossiers').style.display='none';
+    document.getElementById('card-envoi').style.display='none';
+    document.getElementById('card-resultat').style.display='block';
+    document.getElementById('card-resultat').innerHTML =
+      '<div class="alert alert-success"><i class="ti ti-check"></i>Merci ! Le point sur les dossiers a bien été transmis à Déborah.</div>';
+  }).catch(e=>{
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-error"><i class="ti ti-alert-circle"></i>Erreur réseau : '+e.message+'</div>';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-send" style="font-size:16px"></i> Envoyer à Déborah';
+  });
+}
+</script>
+</body>
+</html>

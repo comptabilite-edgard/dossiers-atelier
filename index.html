@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dossiers atelier — Administration</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#F5F4EF;color:#1a1a18;min-height:100vh;padding:1.5rem}
+.wrap{max-width:900px;margin:0 auto}
+.header{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-size:1.1rem;font-weight:600;letter-spacing:1px}.logo .gold{color:#B8982A}
+.badge{background:#FAEEDA;color:#633806;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500}
+.card{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888780;margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+label{font-size:12px;color:#888780;display:block;margin-bottom:4px}
+select,input[type=file]{width:100%;border:1px solid #d3d1c7;border-radius:8px;padding:8px 10px;font-size:13px;background:white;color:#1a1a18;margin-bottom:12px}
+.drop-zone{border:2px dashed #B8982A;border-radius:10px;padding:2rem;text-align:center;cursor:pointer;color:#B8982A;font-size:13px;margin-bottom:12px;transition:background 0.2s}
+.drop-zone:hover,.drop-zone.drag-over{background:#FAEEDA}
+.drop-zone.loaded{border-color:#3B6D11;color:#3B6D11;background:#EAF3DE}
+.btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s}
+.btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
+.btn-primary{background:#B8982A;color:white}
+.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.preview-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:6px 8px;border-bottom:2px solid #e5e3da;text-align:left}
+.preview-table td{padding:6px 8px;border-bottom:0.5px solid #f0ede4}
+.badge-etat{border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge-verre{background:#FCEBEB;color:#A32D2D}
+.badge-livraison{background:#FAEEDA;color:#633806}
+.badge-facture{background:#EAF3DE;color:#3B6D11}
+.alert{border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px}
+.alert-warn{background:#FAEEDA;color:#633806}.alert-success{background:#EAF3DE;color:#3B6D11}
+.alert-error{background:#FCEBEB;color:#A32D2D}
+#loading{display:none;text-align:center;color:#888780;font-size:13px;padding:1rem}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #e5e3da;border-top-color:#B8982A;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:#F5F4EF;border-radius:8px;padding:8px 12px;font-size:12px;flex:1;min-width:100px;text-align:center}
+.stat strong{display:block;font-size:1.4rem;font-weight:600;color:#B8982A}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo"><span class="gold">EDGARD</span> OPTICIENS</div>
+    <div class="badge">Administration — Dossiers commandés non facturés</div>
+  </div>
+
+  <!-- Étape 1 : Sélection magasin + import Excel -->
+  <div class="card">
+    <div class="card-title"><i class="ti ti-building-store"></i>Étape 1 — Magasin et fichier atelier</div>
+    <label>Magasin destinataire *</label>
+    <select id="sel-magasin" onchange="onMagasinChange()">
+      <option value="">-- Sélectionnez un magasin --</option>
+      <option>TEST</option>
+      <option>ANGO</option><option>BIARRO</option><option>BORDO</option>
+      <option>CAENPO</option><option>GIRO</option><option>HAVRO</option>
+      <option>JISAM-Adulte</option><option>JISAM-Enfant</option><option>LYONO</option>
+      <option>MANSO</option><option>MARSEILLO</option><option>NANCEO</option>
+      <option>NANTO</option><option>NICEO</option><option>ORLO</option>
+      <option>REIMO</option><option>STRABO</option><option>TURO-Adulte</option>
+      <option>TURO-Enfant</option>
+    </select>
+    <label>Fichier Excel "Informations des équipements" *</label>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="onDrop(event)">
+      <i class="ti ti-file-upload" style="font-size:24px;display:block;margin-bottom:8px"></i>
+      <span id="drop-label">Cliquez ou déposez le fichier Excel ici</span>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="onFile(this.files[0])">
+    <div id="loading"><span class="spinner"></span>Extraction en cours…</div>
+  </div>
+
+  <!-- Étape 2 : Prévisualisation -->
+  <div class="card" id="card-preview" style="display:none">
+    <div class="card-title"><i class="ti ti-eye"></i>Étape 2 — Prévisualisation des dossiers</div>
+    <div id="stats-preview" class="stat-row"></div>
+    <div id="alert-preview"></div>
+    <div style="max-height:400px;overflow-y:auto;border:1px solid #e5e3da;border-radius:8px">
+      <table class="preview-table">
+        <thead><tr><th>Client</th><th>Mise en vente</th><th>Verres réceptionnés</th><th>État par défaut</th></tr></thead>
+        <tbody id="preview-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Étape 3 : Envoi -->
+  <div class="card" id="card-envoi" style="display:none">
+    <div class="card-title"><i class="ti ti-send"></i>Étape 3 — Envoi au magasin</div>
+    <div id="alert-envoi"></div>
+    <button class="btn btn-primary" id="btn-envoyer" onclick="envoyerFormulaire()">
+      <i class="ti ti-mail" style="font-size:16px"></i> Envoyer le formulaire à <span id="btn-mag-name">…</span>
+    </button>
+  </div>
+
+  <!-- Résultat -->
+  <div id="card-resultat" style="display:none" class="card"></div>
+</div>
+
+<script>
+let dossiers = [];
+let magasinCourant = "";
+
+function onMagasinChange(){
+  magasinCourant = document.getElementById('sel-magasin').value;
+  document.getElementById('btn-mag-name').textContent = magasinCourant || '…';
+}
+
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  if(e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
+}
+
+function excelDateToStr(v){
+  if(typeof v === 'number'){
+    const d = XLSX.SSF.parse_date_code(v);
+    if(!d) return '';
+    return String(d.d).padStart(2,'0')+'/'+String(d.m).padStart(2,'0')+'/'+d.y;
+  }
+  return v || '';
+}
+
+function parseDateFr(str){
+  if(!str) return null;
+  const p = String(str).split('/');
+  if(p.length !== 3) return null;
+  return new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+}
+
+function onFile(file){
+  if(!file) return;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('drop-label').textContent = file.name;
+  document.getElementById('drop-zone').classList.add('loaded');
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array', cellDates:false});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
+      const header = rows[0];
+      const idx = {};
+      header.forEach((h,i)=>{ idx[String(h).trim()] = i; });
+      dossiers = [];
+      for(let r=1; r<rows.length; r++){
+        const row = rows[r];
+        if(!row || row.length===0) continue;
+        const verres = String(row[idx['Verres réceptionnés']] || '').trim();
+        const etatDefaut = verres.toLowerCase() === 'oui' ? 'attente_livraison' : 'attente_verre';
+        dossiers.push({
+          id: 'd'+r,
+          mise_en_vente: excelDateToStr(row[idx['Mise en vente le']]),
+          type_equipement: row[idx["Type d'équipement"]] || '',
+          date_livraison: excelDateToStr(row[idx['Date de livraison']]),
+          nom_client: row[idx['Nom du client']] || '',
+          prenom_client: row[idx['Prénom du client']] || '',
+          verres_receptionnes: verres,
+          prix_vente: row[idx['Prix de vente total']] || '',
+          prix_achat_monture: row[idx["Prix d'achat de la monture"]] || '',
+          etat: etatDefaut,
+          commentaire: ''
+        });
+      }
+      afficherPreview();
+    }catch(err){
+      document.getElementById('alert-preview').innerHTML =
+        '<div class="alert alert-error"><i class="ti ti-alert-circle"></i>Erreur de lecture du fichier : '+err.message+'</div>';
+    }
+    document.getElementById('loading').style.display = 'none';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function etatLabel(e){
+  if(e==='attente_verre') return 'En attente de verre';
+  if(e==='attente_livraison') return 'En attente de livraison';
+  if(e==='livre_non_facture') return 'Livré non facturé';
+  return e;
+}
+function etatBadgeClass(e){
+  if(e==='attente_verre') return 'badge-verre';
+  if(e==='attente_livraison') return 'badge-livraison';
+  return 'badge-facture';
+}
+
+function afficherPreview(){
+  document.getElementById('card-preview').style.display = 'block';
+  document.getElementById('card-envoi').style.display = 'block';
+  const nbVerre = dossiers.filter(d=>d.etat==='attente_verre').length;
+  const nbLivraison = dossiers.filter(d=>d.etat==='attente_livraison').length;
+  document.getElementById('stats-preview').innerHTML =
+    '<div class="stat"><strong>'+dossiers.length+'</strong>Dossiers</div>'+
+    '<div class="stat"><strong>'+nbVerre+'</strong>En attente de verre</div>'+
+    '<div class="stat"><strong>'+nbLivraison+'</strong>En attente de livraison</div>';
+  const tbody = document.getElementById('preview-tbody');
+  tbody.innerHTML = dossiers.map(d=>
+    '<tr><td>'+d.prenom_client+' '+d.nom_client+'</td><td>'+d.mise_en_vente+'</td><td>'+d.verres_receptionnes+'</td>'+
+    '<td><span class="badge-etat '+etatBadgeClass(d.etat)+'">'+etatLabel(d.etat)+'</span></td></tr>'
+  ).join('');
+}
+
+function envoyerFormulaire(){
+  if(!magasinCourant){
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>Merci de sélectionner un magasin.</div>';
+    return;
+  }
+  if(!dossiers.length){
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-warn"><i class="ti ti-alert-triangle"></i>Merci d\'importer le fichier Excel.</div>';
+    return;
+  }
+  const btn = document.getElementById('btn-envoyer');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.8s linear infinite;display:inline-block"></i> Envoi en cours…';
+  fetch('https://edgard-opticiens.app.n8n.cloud/webhook/dossiers-envoi-formulaire',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({magasin:magasinCourant, dossiers_json:JSON.stringify(dossiers), nb_dossiers:dossiers.length})
+  }).then(r=>r.json()).then(()=>{
+    document.getElementById('card-resultat').style.display='block';
+    document.getElementById('card-resultat').innerHTML =
+      '<div class="alert alert-success"><i class="ti ti-check"></i>Formulaire envoyé à '+magasinCourant+'.</div>';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-mail" style="font-size:16px"></i> Envoyer le formulaire à <span>'+magasinCourant+'</span>';
+  }).catch(e=>{
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-error"><i class="ti ti-alert-circle"></i>Erreur réseau : '+e.message+'</div>';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-mail" style="font-size:16px"></i> Envoyer le formulaire à <span>'+magasinCourant+'</span>';
+  });
+}
+</script>
+</body>
+</html>
