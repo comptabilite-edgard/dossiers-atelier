@@ -302,56 +302,77 @@ function buildRecapData(){
   const travauxEnCours = dossiers.filter(d=>d.etat==='attente_verre' || d.etat==='annule_devis');
   const produitsFinis = dossiers.filter(d=>d.etat==='attente_livraison');
 
-  const sommeTTC = list => list.reduce((s,d)=>s+parsePrix(d.prix_vente),0);
-  const sommeAchat = list => list.reduce((s,d)=>s+parsePrix(d.prix_achat_monture),0);
+  const round2 = n => Math.round(n*100)/100;
+  const merges = [];
+  const data = [];
+  let r = 0;
+  function pushTitle(txt, span){
+    data.push([txt]);
+    merges.push({s:{r, c:0}, e:{r, c:span-1}});
+    r++;
+  }
+  function pushRow(row){ data.push(row); r++; }
+  function pushBlank(){ data.push([]); r++; }
 
-  const facTTC = sommeTTC(factureAEtablir);
-  const facHT = facTTC / 1.2;
-  const facTVA = facTTC - facHT;
+  pushTitle('RÉCAPITULATIF COMPTABLE', 9);
+  pushBlank();
 
-  const travauxHT = sommeAchat(travauxEnCours);
+  // Section 1 — Facture à établir
+  pushTitle('FACTURE À ÉTABLIR — Dossiers livrés non facturés', 9);
+  pushRow(['Client','Type équipement','Mise en vente','Date livraison','Verres réceptionnés','Prix vente TTC','Prix vente HT','TVA (20%)','Commentaire']);
+  let facTTC=0, facHT=0, facTVA=0;
+  factureAEtablir.forEach(d=>{
+    const ttc = parsePrix(d.prix_vente);
+    const ht = ttc/1.2;
+    const tva = ttc-ht;
+    facTTC+=ttc; facHT+=ht; facTVA+=tva;
+    pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, round2(ttc), round2(ht), round2(tva), d.commentaire||'']);
+  });
+  pushRow(['SOUS-TOTAL ('+factureAEtablir.length+' dossiers)','','','','', round2(facTTC), round2(facHT), round2(facTVA), '']);
+  pushBlank();
 
-  const pfTTC = sommeTTC(produitsFinis);
-  const pfHT = pfTTC / 1.2;
-  const pfRetenu = pfHT * 0.92;
+  // Section 2 — Travaux en cours
+  pushTitle('TRAVAUX EN COURS — Attente de verre + Annulé / Remise en devis', 9);
+  pushRow(['Client','Type équipement','Mise en vente','État','Prix achat monture (HT)','','','','Commentaire']);
+  let travauxHT=0;
+  travauxEnCours.forEach(d=>{
+    const achat = parsePrix(d.prix_achat_monture);
+    travauxHT+=achat;
+    pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, etatLabel(d.etat), round2(achat), '', '', '', d.commentaire||'']);
+  });
+  pushRow(['SOUS-TOTAL ('+travauxEnCours.length+' dossiers)','','','', round2(travauxHT), '', '', '', '']);
+  pushBlank();
 
+  // Section 3 — Produits finis
+  pushTitle('PRODUITS FINIS — Attente de livraison', 9);
+  pushRow(['Client','Type équipement','Mise en vente','Date livraison','Prix vente TTC','Prix vente HT','Montant retenu (92% HT)','','Commentaire']);
+  let pfTTC=0, pfHT=0, pfRetenu=0;
+  produitsFinis.forEach(d=>{
+    const ttc = parsePrix(d.prix_vente);
+    const ht = ttc/1.2;
+    const retenu = ht*0.92;
+    pfTTC+=ttc; pfHT+=ht; pfRetenu+=retenu;
+    pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, round2(ttc), round2(ht), round2(retenu), '', d.commentaire||'']);
+  });
+  pushRow(['SOUS-TOTAL ('+produitsFinis.length+' dossiers)','','','', round2(pfTTC), round2(pfHT), round2(pfRetenu), '', '']);
+  pushBlank();
+
+  // Section 4 — Alertes marge négative
   const alertes = dossiers.filter(d=>{
-    const venteHT = parsePrix(d.prix_vente) / 1.2;
+    const venteHT = parsePrix(d.prix_vente)/1.2;
     const achatHT = parsePrix(d.prix_achat_monture);
     return achatHT > 0 && venteHT < achatHT;
   });
-
-  const round2 = n => Math.round(n*100)/100;
-
-  const data = [
-    ['Récapitulatif comptable', ''],
-    ['', ''],
-    ['FACTURE À ÉTABLIR (Livrés non facturés)', ''],
-    ['Nombre de dossiers', factureAEtablir.length],
-    ['Total vente TTC', round2(facTTC)],
-    ['Total vente HT', round2(facHT)],
-    ['TVA (20%)', round2(facTVA)],
-    ['', ''],
-    ['TRAVAUX EN COURS (Attente de verre + Annulé/Devis)', ''],
-    ['Nombre de dossiers', travauxEnCours.length],
-    ['Total prix achat monture (HT)', round2(travauxHT)],
-    ['', ''],
-    ['PRODUITS FINIS (Attente de livraison)', ''],
-    ['Nombre de dossiers', produitsFinis.length],
-    ['Total vente TTC', round2(pfTTC)],
-    ['Total vente HT', round2(pfHT)],
-    ['Montant retenu (92% du HT)', round2(pfRetenu)],
-    ['', ''],
-    ['ALERTES — Marge négative (vente HT < achat HT)', ''],
-    ['Nombre de dossiers concernés', alertes.length],
-    ['Client', 'Vente HT / Achat HT']
-  ];
+  pushTitle('ALERTES — Marge négative (vente HT < achat HT)', 9);
+  pushRow(['Client','Type équipement','Prix vente HT','Prix achat HT','Écart','','','','Commentaire']);
   alertes.forEach(d=>{
     const venteHT = round2(parsePrix(d.prix_vente)/1.2);
     const achatHT = round2(parsePrix(d.prix_achat_monture));
-    data.push([d.nom_client+' '+d.prenom_client, venteHT+' € / '+achatHT+' €']);
+    pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, venteHT, achatHT, round2(venteHT-achatHT), '', '', '', d.commentaire||'']);
   });
-  return data;
+  if(alertes.length===0) pushRow(['Aucun dossier en marge négative']);
+
+  return { data, merges };
 }
 
 function buildXlsxBase64(){
@@ -360,7 +381,13 @@ function buildXlsxBase64(){
     data.push([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, d.prix_vente, d.prix_achat_monture, etatLabel(d.etat), d.commentaire||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
-  const wsRecap = XLSX.utils.aoa_to_sheet(buildRecapData());
+  ws['!cols'] = [{wch:22},{wch:16},{wch:12},{wch:12},{wch:14},{wch:11},{wch:14},{wch:20},{wch:30}];
+
+  const recap = buildRecapData();
+  const wsRecap = XLSX.utils.aoa_to_sheet(recap.data);
+  wsRecap['!merges'] = recap.merges;
+  wsRecap['!cols'] = [{wch:22},{wch:16},{wch:12},{wch:12},{wch:16},{wch:14},{wch:18},{wch:6},{wch:30}];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Dossiers non factures');
   XLSX.utils.book_append_sheet(wb, wsRecap, 'Recapitulatif comptable');
