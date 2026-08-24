@@ -297,14 +297,73 @@ function initSig(){
 }
 function clearSig(){ sigCtx.clearRect(0,0,document.getElementById('sig-canvas').width,document.getElementById('sig-canvas').height); }
 
+function buildRecapData(){
+  const factureAEtablir = dossiers.filter(d=>d.etat==='livre_non_facture');
+  const travauxEnCours = dossiers.filter(d=>d.etat==='attente_verre' || d.etat==='annule_devis');
+  const produitsFinis = dossiers.filter(d=>d.etat==='attente_livraison');
+
+  const sommeTTC = list => list.reduce((s,d)=>s+parsePrix(d.prix_vente),0);
+  const sommeAchat = list => list.reduce((s,d)=>s+parsePrix(d.prix_achat_monture),0);
+
+  const facTTC = sommeTTC(factureAEtablir);
+  const facHT = facTTC / 1.2;
+  const facTVA = facTTC - facHT;
+
+  const travauxHT = sommeAchat(travauxEnCours);
+
+  const pfTTC = sommeTTC(produitsFinis);
+  const pfHT = pfTTC / 1.2;
+  const pfRetenu = pfHT * 0.92;
+
+  const alertes = dossiers.filter(d=>{
+    const venteHT = parsePrix(d.prix_vente) / 1.2;
+    const achatHT = parsePrix(d.prix_achat_monture);
+    return achatHT > 0 && venteHT < achatHT;
+  });
+
+  const round2 = n => Math.round(n*100)/100;
+
+  const data = [
+    ['Récapitulatif comptable', ''],
+    ['', ''],
+    ['FACTURE À ÉTABLIR (Livrés non facturés)', ''],
+    ['Nombre de dossiers', factureAEtablir.length],
+    ['Total vente TTC', round2(facTTC)],
+    ['Total vente HT', round2(facHT)],
+    ['TVA (20%)', round2(facTVA)],
+    ['', ''],
+    ['TRAVAUX EN COURS (Attente de verre + Annulé/Devis)', ''],
+    ['Nombre de dossiers', travauxEnCours.length],
+    ['Total prix achat monture (HT)', round2(travauxHT)],
+    ['', ''],
+    ['PRODUITS FINIS (Attente de livraison)', ''],
+    ['Nombre de dossiers', produitsFinis.length],
+    ['Total vente TTC', round2(pfTTC)],
+    ['Total vente HT', round2(pfHT)],
+    ['Montant retenu (92% du HT)', round2(pfRetenu)],
+    ['', ''],
+    ['ALERTES — Marge négative (vente HT < achat HT)', ''],
+    ['Nombre de dossiers concernés', alertes.length],
+    ['Client', 'Vente HT / Achat HT']
+  ];
+  alertes.forEach(d=>{
+    const venteHT = round2(parsePrix(d.prix_vente)/1.2);
+    const achatHT = round2(parsePrix(d.prix_achat_monture));
+    data.push([d.nom_client+' '+d.prenom_client, venteHT+' € / '+achatHT+' €']);
+  });
+  return data;
+}
+
 function buildXlsxBase64(){
   const data = [['Client','Type équipement','Mise en vente le','Date de livraison','Verres réceptionnés','Prix de vente','Prix achat monture','État','Commentaire']];
   dossiers.forEach(d=>{
     data.push([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, d.prix_vente, d.prix_achat_monture, etatLabel(d.etat), d.commentaire||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
+  const wsRecap = XLSX.utils.aoa_to_sheet(buildRecapData());
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Dossiers non factures');
+  XLSX.utils.book_append_sheet(wb, wsRecap, 'Recapitulatif comptable');
   return XLSX.write(wb, {type:'base64', bookType:'xlsx'});
 }
 function etatLabel(e){
