@@ -384,6 +384,7 @@ function buildRecapData(){
   const round2 = n => Math.round(n*100)/100;
   const merges = [];
   const formulas = [];
+  const moneyAddrs = [];
   const data = [];
   function excelRow(){ return data.length + 1; }
   function pushTitle(txt, span){ data.push([txt]); merges.push({s:{r:data.length-1, c:0}, e:{r:data.length-1, c:span-1}}); }
@@ -403,6 +404,7 @@ function buildRecapData(){
     pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, ttc, null, null, d.commentaire||'']);
     formulas.push({addr:'G'+row, f:'F'+row+'/1.2', v: round2(ttc/1.2)});
     formulas.push({addr:'H'+row, f:'F'+row+'-G'+row, v: round2(ttc-ttc/1.2)});
+    moneyAddrs.push('F'+row);
   });
   const facLastRow = excelRow()-1;
   const facSubRow = excelRow();
@@ -419,8 +421,10 @@ function buildRecapData(){
   pushRow(['Client','Type équipement','Mise en vente','État','Prix achat monture (HT)','','','','Commentaire']);
   const travFirstRow = excelRow();
   travauxEnCours.forEach(d=>{
+    const row = excelRow();
     const achat = round2(parsePrix(d.prix_achat_monture));
     pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, etatLabel(d.etat), achat, '', '', '', d.commentaire||'']);
+    moneyAddrs.push('E'+row);
   });
   const travLastRow = excelRow()-1;
   const travSubRow = excelRow();
@@ -440,6 +444,7 @@ function buildRecapData(){
     pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, ttc, null, null, '', d.commentaire||'']);
     formulas.push({addr:'F'+row, f:'E'+row+'/1.2', v: round2(ttc/1.2)});
     formulas.push({addr:'G'+row, f:'F'+row+'*0.92', v: round2((ttc/1.2)*0.92)});
+    moneyAddrs.push('E'+row);
   });
   const pfLastRow = excelRow()-1;
   const pfSubRow = excelRow();
@@ -466,19 +471,30 @@ function buildRecapData(){
     pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, ttc, null, achatHT, null, '', '', d.commentaire||'']);
     formulas.push({addr:'D'+row, f:'C'+row+'/1.2', v: round2(ttc/1.2)});
     formulas.push({addr:'F'+row, f:'D'+row+'-E'+row, v: round2(ttc/1.2-achatHT)});
+    moneyAddrs.push('C'+row, 'E'+row);
   });
   if(alertes.length===0) pushRow(['Aucun dossier en marge négative']);
 
-  return { data, merges, formulas };
+  // Toutes les cellules formules sont aussi monétaires
+  formulas.forEach(fm=>moneyAddrs.push(fm.addr));
+  if(factureAEtablir.length) moneyAddrs.push('F'+facSubRow,'G'+facSubRow,'H'+facSubRow);
+  if(travauxEnCours.length) moneyAddrs.push('E'+travSubRow);
+  if(produitsFinis.length) moneyAddrs.push('E'+pfSubRow,'F'+pfSubRow,'G'+pfSubRow);
+
+  return { data, merges, formulas, moneyAddrs };
 }
 
 function buildXlsxBase64(){
+  const ACC_FORMAT = '_-* #,##0.00\\ "€"_-;-* #,##0.00\\ "€"_-;_-* "-"??\\ "€"_-;_-@_-';
   const data = [['Client','Type équipement','Mise en vente le','Date de livraison','Verres réceptionnés','Prix de vente','Prix achat monture','État','Commentaire']];
   dossiers.forEach(d=>{
-    data.push([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, d.prix_vente, d.prix_achat_monture, etatLabel(d.etat), d.commentaire||'']);
+    data.push([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, parsePrix(d.prix_vente), parsePrix(d.prix_achat_monture), etatLabel(d.etat), d.commentaire||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{wch:22},{wch:16},{wch:12},{wch:12},{wch:14},{wch:11},{wch:14},{wch:20},{wch:30}];
+  for(let r=2; r<=dossiers.length+1; r++){
+    ['F','G'].forEach(col=>{ if(ws[col+r]) ws[col+r].z = ACC_FORMAT; });
+  }
 
   const recap = buildRecapData();
   const wsRecap = XLSX.utils.aoa_to_sheet(recap.data);
@@ -487,6 +503,9 @@ function buildXlsxBase64(){
   recap.formulas.forEach(fm=>{
     wsRecap[fm.addr] = { t:'n', f: fm.f };
     if(typeof fm.v === 'number') wsRecap[fm.addr].v = fm.v;
+  });
+  recap.moneyAddrs.forEach(addr=>{
+    if(wsRecap[addr]) wsRecap[addr].z = ACC_FORMAT;
   });
 
   const wb = XLSX.utils.book_new();
