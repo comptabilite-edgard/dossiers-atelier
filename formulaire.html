@@ -15,8 +15,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F5F4EF;color:#1a
 .badge{background:#FAEEDA;color:#633806;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500}
 .card{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1.25rem;margin-bottom:1rem}
 .card-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888780;margin-bottom:1rem;display:flex;align-items:center;gap:6px}
-.instructions{background:#F5F4EF;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#5F5E5A;line-height:1.6;margin-bottom:1rem;display:flex;gap:10px;align-items:flex-start}
-.instructions i{color:#B8982A;font-size:16px;flex-shrink:0;margin-top:1px}
+.instructions{background:#FAEEDA;border-left:4px solid #B8982A;border-radius:8px;padding:14px 16px;font-size:13.5px;color:#4a3608;line-height:1.65;margin-bottom:1.1rem;display:flex;gap:12px;align-items:flex-start;font-weight:500}
+.instructions i{color:#B8982A;font-size:20px;flex-shrink:0;margin-top:1px}
+.instructions strong{color:#633806}
 label{font-size:12px;color:#888780;display:block;margin-bottom:4px}
 input[type=text],textarea{width:100%;border:1px solid #d3d1c7;border-radius:8px;padding:8px 10px;font-size:13px;background:white;color:#1a1a18;margin-bottom:12px;font-family:inherit}
 select.etat-select{border:1px solid #d3d1c7;border-radius:6px;padding:6px 8px;font-size:12.5px;background:white;max-width:180px}
@@ -58,6 +59,9 @@ tr.row-valide:hover{background:#E7F2DA}
 .alert-error{background:#FCEBEB;color:#A32D2D}
 canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-action:none;margin-bottom:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.comment-box.shake{animation:shake 0.4s ease}
+.inline-warn{position:absolute;left:8px;top:100%;margin-top:4px;background:#FCEBEB;color:#A32D2D;font-size:11px;padding:5px 9px;border-radius:6px;white-space:nowrap;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
 </style>
 </head>
 <body>
@@ -73,7 +77,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
     <div class="card-title"><i class="ti ti-list-check"></i>Dossiers commandés non facturés</div>
     <div class="instructions">
       <i class="ti ti-info-circle"></i>
-      <div>Pour chaque dossier, sélectionnez l'état, indiquez un commentaire lorsque celui-ci est demandé (ex. : client relancé le 05/10, facturation mutuelle attendue en 10/2026…), puis validez le dossier à l'aide de la coche. Pour modifier un dossier déjà validé, recliquez sur la coche pour le déverrouiller.</div>
+      <div><strong>Comment traiter un dossier :</strong> sélectionnez l'état, indiquez un commentaire lorsque celui-ci est demandé (ex. : client relancé le 05/10, facturation mutuelle attendue en 10/2026…), puis validez le dossier à l'aide de la coche. Pour modifier un dossier déjà validé, recliquez sur la coche pour le déverrouiller.</div>
     </div>
     <div id="stats-dossiers" class="stat-row"></div>
     <div class="filter-row" id="filter-row">
@@ -213,7 +217,7 @@ function afficherDossiers(){
   tbody.innerHTML = list.map(d=>{
     const obligatoire = commentaireObligatoire(d);
     const verrouille = d.valide;
-    return '<tr class="'+(d.valide?'row-valide':'')+'">'+
+    return '<tr id="row-'+d.id+'" class="'+(d.valide?'row-valide':'')+'">'+
       '<td>'+d.nom_client+' '+d.prenom_client+'</td>'+
       '<td>'+(d.type_equipement||'')+'</td>'+
       '<td>'+d.mise_en_vente+'</td>'+
@@ -225,7 +229,7 @@ function afficherDossiers(){
         '<option value="livre_non_facture" '+(d.etat==='livre_non_facture'?'selected':'')+'>Livré non facturé</option>'+
         '<option value="annule_devis" '+(d.etat==='annule_devis'?'selected':'')+'>Dossier annulé / Remis en devis</option>'+
       '</select></td>'+
-      '<td><textarea rows="1" '+(verrouille?'disabled':'')+' class="comment-box'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" oninput="onCommentInput(\''+d.id+'\',this)" onfocus="onCommentFocus(this)" onblur="onCommentBlur(this)">'+(d.commentaire||'').replace(/</g,'&lt;')+'</textarea></td>'+
+      '<td><textarea id="comment-'+d.id+'" rows="1" '+(verrouille?'disabled':'')+' class="comment-box'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" oninput="onCommentInput(\''+d.id+'\',this)" onfocus="onCommentFocus(this)" onblur="onCommentBlur(this)">'+(d.commentaire||'').replace(/</g,'&lt;')+'</textarea></td>'+
       '<td style="text-align:center"><button type="button" class="valide-btn'+(d.valide?' on':'')+'" onclick="toggleValide(\''+d.id+'\')" title="'+(d.valide?'Cliquez pour modifier':'Marquer comme validé')+'"><i class="ti '+(d.valide?'ti-lock':'ti-check')+'"></i>'+(d.valide?'Validé':'Valider')+'</button></td>'+
     '</tr>';
   }).join('');
@@ -242,23 +246,57 @@ function onCommentBlur(el){
 function onCommentInput(id, el){
   updateCommentaire(id, el.value);
   checkCommentOverflow(el);
+  // Si un commentaire est saisi et qu'il était bloquant, retirer l'alerte
+  document.getElementById('alert-validation-'+id)?.remove();
+}
+let _measureCanvas;
+function measureTextWidth(text, font){
+  if(!_measureCanvas) _measureCanvas = document.createElement('canvas');
+  const ctx = _measureCanvas.getContext('2d');
+  ctx.font = font;
+  return ctx.measureText(text).width;
 }
 function checkCommentOverflow(el){
-  // On n'agrandit la case QUE si le texte dépasse réellement la largeur visible
-  const overflow = el.scrollWidth > el.clientWidth + 2;
-  if(overflow){
+  // On n'agrandit la case QUE si le TEXTE RÉEL (pas le placeholder) dépasse la largeur visible.
+  // Mesure directe du texte plutôt que scrollWidth/clientWidth (peu fiable sur les textarea selon navigateurs).
+  const value = el.value || '';
+  if(!value){ el.classList.remove('expanded'); el.removeAttribute('style'); return; }
+  const style = getComputedStyle(el);
+  const font = style.fontSize+' '+style.fontFamily;
+  const padding = parseFloat(style.paddingLeft)+parseFloat(style.paddingRight);
+  const availableWidth = el.clientWidth - padding - 4;
+  const textWidth = measureTextWidth(value, font);
+  if(textWidth > availableWidth){
     el.classList.add('expanded');
     el.style.whiteSpace = 'pre-wrap';
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 220)+'px';
-  }else if(!el.classList.contains('expanded')){
-    // reste compacte, rien à faire
+  }else{
+    el.classList.remove('expanded');
+    el.removeAttribute('style');
   }
 }
 
 function toggleValide(id){
   const d = dossiers.find(x=>x.id===id);
-  if(d) d.valide = !d.valide;
+  if(!d) return;
+  if(!d.valide && commentaireObligatoire(d) && !d.commentaire){
+    // Blocage : commentaire requis mais absent
+    const row = document.getElementById('row-'+id);
+    const box = document.getElementById('comment-'+id);
+    if(box){ box.focus(); box.classList.add('shake'); setTimeout(()=>box.classList.remove('shake'), 500); }
+    let warn = document.getElementById('alert-validation-'+id);
+    if(!warn && row){
+      warn = document.createElement('div');
+      warn.id = 'alert-validation-'+id;
+      warn.className = 'inline-warn';
+      warn.innerHTML = '<i class="ti ti-alert-triangle"></i> Merci d\'indiquer un commentaire avant de valider ce dossier.';
+      const cell = row.querySelector('td:nth-last-child(2)');
+      if(cell) cell.appendChild(warn);
+    }
+    return;
+  }
+  d.valide = !d.valide;
   afficherDossiers();
 }
 
