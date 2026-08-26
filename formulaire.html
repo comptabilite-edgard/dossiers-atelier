@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#F5F4EF;color:#1a1a18;min-height:100vh;padding:1.5rem}
-.wrap{max-width:960px;margin:0 auto}
+.wrap{max-width:1240px;margin:0 auto}
 .header{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .logo{font-size:1.1rem;font-weight:600;letter-spacing:1px}.logo .gold{color:#B8982A}
 .badge{background:#FAEEDA;color:#633806;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500}
@@ -61,7 +61,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
 .comment-box.shake{animation:shake 0.4s ease}
-.inline-warn{position:absolute;left:8px;top:100%;margin-top:4px;background:#FCEBEB;color:#A32D2D;font-size:11px;padding:5px 9px;border-radius:6px;white-space:nowrap;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.inline-warn{position:absolute;left:0;top:100%;margin-top:4px;background:#FCEBEB;color:#A32D2D;font-size:11.5px;padding:6px 10px;border-radius:6px;white-space:normal;width:max-content;max-width:260px;line-height:1.4;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
 </style>
 </head>
 <body>
@@ -92,12 +92,12 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
       <table>
         <thead>
           <tr>
-            <th onclick="sortBy('client')">CLIENT <span id="sort-client"></span></th>
-            <th>ÉQUIPEMENT</th>
-            <th onclick="sortBy('date')">MISE EN VENTE <span id="sort-date"></span></th>
+            <th onclick="sortBy('client')">CLIENT <span class="sort-indicator" id="sort-client"></span></th>
+            <th onclick="sortBy('equipement')">ÉQUIPEMENT <span class="sort-indicator" id="sort-equipement"></span></th>
+            <th onclick="sortBy('date')">MISE EN VENTE <span class="sort-indicator" id="sort-date"></span></th>
             <th style="text-align:right">PRIX VENTE</th>
             <th style="text-align:right">PRIX ACHAT MONTURE</th>
-            <th>ÉTAT</th>
+            <th onclick="sortBy('etat')">ÉTAT <span class="sort-indicator" id="sort-etat"></span></th>
             <th>COMMENTAIRE</th>
             <th style="text-align:center">VALIDÉ</th>
           </tr>
@@ -172,6 +172,15 @@ function chargerDossiers(){
 }
 chargerDossiers();
 
+document.addEventListener('click', function(e){
+  document.querySelectorAll('.inline-warn').forEach(w=>{
+    const id = w.id.replace('alert-validation-','');
+    const box = document.getElementById('comment-'+id);
+    if(box && e.target === box) return; // laisse le message si on clique justement dans la case concernée
+    w.remove();
+  });
+});
+
 function setFilter(f, btn){
   currentFilter = f;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
@@ -181,9 +190,9 @@ function setFilter(f, btn){
 
 function sortBy(field){
   if(sortField === field) sortDir *= -1; else { sortField = field; sortDir = 1; }
-  document.getElementById('sort-client').textContent = '';
-  document.getElementById('sort-date').textContent = '';
-  document.getElementById('sort-'+(field==='client'?'client':'date')).textContent = sortDir===1 ? '▲' : '▼';
+  document.querySelectorAll('.sort-indicator').forEach(s=>s.textContent='');
+  const el = document.getElementById('sort-'+field);
+  if(el) el.textContent = sortDir===1 ? '▲' : '▼';
   afficherDossiers();
 }
 
@@ -207,10 +216,17 @@ function afficherDossiers(){
       if(sortField==='client'){
         const na=(a.nom_client+a.prenom_client).toLowerCase(), nb=(b.nom_client+b.prenom_client).toLowerCase();
         return na<nb ? -1*sortDir : na>nb ? 1*sortDir : 0;
-      }else{
+      }else if(sortField==='date'){
         const da=parseDateFr(a.mise_en_vente), db=parseDateFr(b.mise_en_vente);
         return ((da?da.getTime():0)-(db?db.getTime():0))*sortDir;
+      }else if(sortField==='equipement'){
+        const na=(a.type_equipement||'').toLowerCase(), nb=(b.type_equipement||'').toLowerCase();
+        return na<nb ? -1*sortDir : na>nb ? 1*sortDir : 0;
+      }else if(sortField==='etat'){
+        const na=etatLabel(a.etat).toLowerCase(), nb=etatLabel(b.etat).toLowerCase();
+        return na<nb ? -1*sortDir : na>nb ? 1*sortDir : 0;
       }
+      return 0;
     });
   }
   const tbody = document.getElementById('dossiers-tbody');
@@ -291,7 +307,7 @@ function toggleValide(id){
       warn.id = 'alert-validation-'+id;
       warn.className = 'inline-warn';
       warn.innerHTML = '<i class="ti ti-alert-triangle"></i> Merci d\'indiquer un commentaire avant de valider ce dossier.';
-      const cell = row.querySelector('td:nth-last-child(2)');
+      const cell = row.querySelector('td:nth-last-child(2)') || row.querySelector('td:has(#comment-'+CSS.escape(id)+')');
       if(cell) cell.appendChild(warn);
     }
     return;
