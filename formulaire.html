@@ -9,37 +9,46 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#F5F4EF;color:#1a1a18;min-height:100vh;padding:1.5rem}
-.wrap{max-width:900px;margin:0 auto}
+.wrap{max-width:960px;margin:0 auto}
 .header{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .logo{font-size:1.1rem;font-weight:600;letter-spacing:1px}.logo .gold{color:#B8982A}
 .badge{background:#FAEEDA;color:#633806;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500}
 .card{background:white;border-radius:12px;border:1px solid #e5e3da;padding:1.25rem;margin-bottom:1rem}
 .card-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#888780;margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+.instructions{background:#F5F4EF;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#5F5E5A;line-height:1.6;margin-bottom:1rem;display:flex;gap:10px;align-items:flex-start}
+.instructions i{color:#B8982A;font-size:16px;flex-shrink:0;margin-top:1px}
 label{font-size:12px;color:#888780;display:block;margin-bottom:4px}
 input[type=text],textarea{width:100%;border:1px solid #d3d1c7;border-radius:8px;padding:8px 10px;font-size:13px;background:white;color:#1a1a18;margin-bottom:12px;font-family:inherit}
-select.etat-select{border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px;background:white}
-.filter-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
-.filter-btn{font-size:12px;padding:4px 12px;border-radius:20px;border:0.5px solid #d3d1c7;background:none;cursor:pointer;color:#5F5E5A;transition:all 0.15s}
+select.etat-select{border:1px solid #d3d1c7;border-radius:6px;padding:6px 8px;font-size:12.5px;background:white;max-width:180px}
+select.etat-select:disabled{background:#F5F4EF;color:#888780;border-color:#e5e3da;-webkit-appearance:none;appearance:none}
+.filter-row{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.filter-btn{font-size:12.5px;padding:6px 14px;border-radius:20px;border:0.5px solid #d3d1c7;background:none;cursor:pointer;color:#5F5E5A;transition:all 0.15s;font-weight:500}
 .filter-btn.active{background:#B8982A;color:white;border-color:#B8982A}
-.filter-btn:hover:not(.active){background:#F5F4EF}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:4px 8px;border-bottom:2px solid #e5e3da;text-align:left;cursor:pointer;user-select:none}
-td{padding:3px 8px;border-bottom:0.5px solid #f0ede4;vertical-align:middle;position:relative}
-.comment-input{width:100%;border:1px solid #d3d1c7;border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;resize:none;height:26px;max-height:26px;overflow:hidden;white-space:nowrap;box-sizing:border-box;background:white}
-.comment-input.required{border-color:#B8982A;background:#FAEEDA}
-.comment-input.expanded{position:absolute;left:0;top:0;width:280px;max-width:60vw;height:auto;min-height:60px;max-height:200px;overflow:auto;white-space:pre-wrap;z-index:30;box-shadow:0 4px 16px rgba(0,0,0,0.15);background:white}
+.filter-btn:hover:not(.active){background:#F5F4EF;border-color:#B8982A}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{position:sticky;top:0;background:white;z-index:5}
+th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#888780;padding:9px 8px;border-bottom:2px solid #e5e3da;text-align:left;cursor:pointer;user-select:none;white-space:nowrap}
+tbody tr{transition:background 0.1s}
+tbody tr:hover{background:#FAF9F5}
+tbody tr:nth-child(even):not(.row-valide):not(:hover){background:#FBFAF7}
+td{padding:8px;border-bottom:0.5px solid #f0ede4;vertical-align:middle;position:relative}
+.comment-box{width:100%;border:1px solid #d3d1c7;border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;resize:none;height:32px;max-height:32px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-sizing:border-box;background:white;transition:none}
+.comment-box:disabled{background:#F5F4EF;color:#888780;border-color:#e5e3da}
+.comment-box.required{border-color:#B8982A;background:#FAEEDA}
+.comment-box.expanded{position:absolute;left:8px;top:4px;width:calc(100% - 16px);min-width:260px;height:auto;min-height:64px;max-height:220px;overflow:auto;white-space:pre-wrap;text-overflow:clip;z-index:30;box-shadow:0 6px 20px rgba(0,0,0,0.18);background:white;border-color:#B8982A}
 .badge-verre{background:#E8EEFB;color:#2C4A8C}
 .badge-livraison{background:#FAEEDA;color:#633806}
 .badge-facture{background:#F1EAFB;color:#5A3A8C}
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.stat{background:#F5F4EF;border-radius:8px;padding:8px 12px;font-size:12px;flex:1;min-width:100px;text-align:center}
+.stat{background:#F5F4EF;border-radius:8px;padding:10px 12px;font-size:12px;flex:1;min-width:110px;text-align:center}
 .stat strong{display:block;font-size:1.4rem;font-weight:600;color:#B8982A}
 .stat small{display:block;font-size:11px;color:#5F5E5A;margin-top:2px}
-tr.row-valide{background:#EAF3DE}
-.valide-btn{background:none;border:1.5px solid #d3d1c7;border-radius:50%;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#d3d1c7;font-size:14px;transition:all 0.15s;margin:0 auto}
+tr.row-valide{background:#EEF6E4}
+tr.row-valide:hover{background:#E7F2DA}
+.valide-btn{background:white;border:1.5px solid #d3d1c7;border-radius:20px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:#5F5E5A;font-size:11.5px;font-weight:500;transition:all 0.15s;white-space:nowrap}
 .valide-btn.on{background:#3B6D11;border-color:#3B6D11;color:white}
 .valide-btn:hover{border-color:#3B6D11;color:#3B6D11}
-.valide-btn.on:hover{color:white}
+.valide-btn.on:hover{background:#2d5a0a;color:white}
 .badge-annule{background:#EFE7DE;color:#6B5B4D}
 .btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.15s}
 .btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
@@ -62,6 +71,10 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
 
   <div class="card" id="card-dossiers" style="display:none">
     <div class="card-title"><i class="ti ti-list-check"></i>Dossiers commandés non facturés</div>
+    <div class="instructions">
+      <i class="ti ti-info-circle"></i>
+      <div>Pour chaque dossier, sélectionnez l'état, indiquez un commentaire lorsque celui-ci est demandé (ex. : client relancé le 05/10, facturation mutuelle attendue en 10/2026…), puis validez le dossier à l'aide de la coche. Pour modifier un dossier déjà validé, recliquez sur la coche pour le déverrouiller.</div>
+    </div>
     <div id="stats-dossiers" class="stat-row"></div>
     <div class="filter-row" id="filter-row">
       <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
@@ -69,13 +82,14 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
       <button class="filter-btn" onclick="setFilter('attente_verre',this)">En attente de verre</button>
       <button class="filter-btn" onclick="setFilter('attente_livraison',this)">En attente de livraison</button>
       <button class="filter-btn" onclick="setFilter('livre_non_facture',this)">Livré non facturé</button>
-      <button class="filter-btn" onclick="setFilter('annule_devis',this)">Annulé / Remise en devis</button>
+      <button class="filter-btn" onclick="setFilter('annule_devis',this)">Annulé / Remis en devis</button>
     </div>
     <div style="overflow-x:auto">
       <table>
         <thead>
           <tr>
             <th onclick="sortBy('client')">CLIENT <span id="sort-client"></span></th>
+            <th>ÉQUIPEMENT</th>
             <th onclick="sortBy('date')">MISE EN VENTE <span id="sort-date"></span></th>
             <th style="text-align:right">PRIX VENTE</th>
             <th style="text-align:right">PRIX ACHAT MONTURE</th>
@@ -198,37 +212,48 @@ function afficherDossiers(){
   const tbody = document.getElementById('dossiers-tbody');
   tbody.innerHTML = list.map(d=>{
     const obligatoire = commentaireObligatoire(d);
+    const verrouille = d.valide;
     return '<tr class="'+(d.valide?'row-valide':'')+'">'+
       '<td>'+d.nom_client+' '+d.prenom_client+'</td>'+
+      '<td>'+(d.type_equipement||'')+'</td>'+
       '<td>'+d.mise_en_vente+'</td>'+
       '<td style="text-align:center">'+(d.prix_vente!==''&&d.prix_vente!=null?d.prix_vente+' €':'')+'</td>'+
       '<td style="text-align:center">'+(d.prix_achat_monture!==''&&d.prix_achat_monture!=null?d.prix_achat_monture+' €':'')+'</td>'+
-      '<td><select class="etat-select" onchange="updateEtat(\''+d.id+'\',this.value)">'+
+      '<td><select class="etat-select" '+(verrouille?'disabled':'')+' onchange="updateEtat(\''+d.id+'\',this.value)">'+
         '<option value="attente_verre" '+(d.etat==='attente_verre'?'selected':'')+'>En attente de verre</option>'+
         '<option value="attente_livraison" '+(d.etat==='attente_livraison'?'selected':'')+'>En attente de livraison</option>'+
         '<option value="livre_non_facture" '+(d.etat==='livre_non_facture'?'selected':'')+'>Livré non facturé</option>'+
-        '<option value="annule_devis" '+(d.etat==='annule_devis'?'selected':'')+'>Dossier annulé / Remise en devis</option>'+
+        '<option value="annule_devis" '+(d.etat==='annule_devis'?'selected':'')+'>Dossier annulé / Remis en devis</option>'+
       '</select></td>'+
-      '<td><textarea rows="1" class="comment-input'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" oninput="updateCommentaire(\''+d.id+'\',this.value);autoGrow(this)" onfocus="expandComment(this)" onblur="collapseComment(this)">'+(d.commentaire||'').replace(/</g,'&lt;')+'</textarea></td>'+
-      '<td style="text-align:center"><button type="button" class="valide-btn'+(d.valide?' on':'')+'" onclick="toggleValide(\''+d.id+'\')" title="'+(d.valide?'Dossier validé':'Marquer comme validé')+'"><i class="ti ti-check"></i></button></td>'+
+      '<td><textarea rows="1" '+(verrouille?'disabled':'')+' class="comment-box'+(obligatoire && !d.commentaire ? ' required':'')+'" placeholder="'+(obligatoire?'Commentaire attendu':'Commentaire')+'" oninput="onCommentInput(\''+d.id+'\',this)" onfocus="onCommentFocus(this)" onblur="onCommentBlur(this)">'+(d.commentaire||'').replace(/</g,'&lt;')+'</textarea></td>'+
+      '<td style="text-align:center"><button type="button" class="valide-btn'+(d.valide?' on':'')+'" onclick="toggleValide(\''+d.id+'\')" title="'+(d.valide?'Cliquez pour modifier':'Marquer comme validé')+'"><i class="ti '+(d.valide?'ti-lock':'ti-check')+'"></i>'+(d.valide?'Validé':'Valider')+'</button></td>'+
     '</tr>';
   }).join('');
   afficherStats();
 }
 
-function expandComment(el){
-  el.classList.add('expanded');
-  el.style.whiteSpace = 'pre-wrap';
-  autoGrow(el);
+function onCommentFocus(el){
+  checkCommentOverflow(el);
 }
-function collapseComment(el){
+function onCommentBlur(el){
   el.classList.remove('expanded');
   el.removeAttribute('style');
 }
-function autoGrow(el){
-  if(!el.classList.contains('expanded')) return;
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 200)+'px';
+function onCommentInput(id, el){
+  updateCommentaire(id, el.value);
+  checkCommentOverflow(el);
+}
+function checkCommentOverflow(el){
+  // On n'agrandit la case QUE si le texte dépasse réellement la largeur visible
+  const overflow = el.scrollWidth > el.clientWidth + 2;
+  if(overflow){
+    el.classList.add('expanded');
+    el.style.whiteSpace = 'pre-wrap';
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 220)+'px';
+  }else if(!el.classList.contains('expanded')){
+    // reste compacte, rien à faire
+  }
 }
 
 function toggleValide(id){
@@ -418,7 +443,7 @@ function buildXlsxBase64(){
 function etatLabel(e){
   if(e==='attente_verre') return 'En attente de verre';
   if(e==='attente_livraison') return 'En attente de livraison';
-  if(e==='annule_devis') return 'Dossier annulé / Remise en devis';
+  if(e==='annule_devis') return 'Dossier annulé / Remis en devis';
   return 'Livré non facturé';
 }
 
