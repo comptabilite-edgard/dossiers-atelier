@@ -62,6 +62,20 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
 .comment-box.shake{animation:shake 0.4s ease}
 .inline-warn{position:absolute;left:0;top:100%;margin-top:4px;background:#FCEBEB;color:#A32D2D;font-size:11.5px;padding:6px 10px;border-radius:6px;white-space:normal;width:max-content;max-width:260px;line-height:1.4;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+#print-container{display:none}
+#print-container .print-header{text-align:center;margin-bottom:1.2rem}
+#print-container .print-header h1{font-size:16px;color:#B8982A;margin-bottom:2px}
+#print-container .print-header .print-sub{font-size:12px;color:#5F5E5A}
+#print-container table{width:100%;border-collapse:collapse;font-size:11px}
+#print-container th{background:#F5F4EF;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:#5F5E5A;padding:6px 6px;border-bottom:2px solid #e5e3da;text-align:left}
+#print-container td{padding:5px 6px;border-bottom:0.5px solid #f0ede4}
+#print-container tr:nth-child(even) td{background:#FBFAF7}
+@media print{
+  .wrap > *:not(#print-container){display:none !important}
+  #print-container{display:block !important}
+  #print-container table{page-break-inside:auto}
+  #print-container tr{page-break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -87,6 +101,7 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
       <button class="filter-btn" onclick="setFilter('attente_livraison',this)">En attente de livraison</button>
       <button class="filter-btn" onclick="setFilter('livre_non_facture',this)">Livré non facturé</button>
       <button class="filter-btn" onclick="setFilter('annule_devis',this)">Annulé / Remis en devis</button>
+      <button class="filter-btn no-print" onclick="imprimerListe()" style="margin-left:auto;background:#B8982A;color:white;border-color:#B8982A"><i class="ti ti-printer" style="font-size:13px"></i> Imprimer cette liste</button>
     </div>
     <div style="overflow-x:auto">
       <table>
@@ -122,6 +137,8 @@ canvas{border:1px solid #d3d1c7;border-radius:8px;width:100%;height:150px;touch-
   </div>
 
   <div id="card-resultat" style="display:none" class="card"></div>
+
+  <div id="print-container"></div>
 </div>
 
 <script>
@@ -207,6 +224,35 @@ function commentaireObligatoire(d){
 
 function aTraiter(d){
   return !d.valide || (commentaireObligatoire(d) && !d.commentaire);
+}
+
+function labelFiltre(f){
+  if(f==='all') return 'Tous les dossiers';
+  if(f==='a_traiter') return 'À traiter';
+  if(f==='attente_verre') return 'En attente de verre';
+  if(f==='attente_livraison') return 'En attente de livraison';
+  if(f==='livre_non_facture') return 'Livré non facturé';
+  if(f==='annule_devis') return 'Annulé / Remis en devis';
+  return f;
+}
+
+function imprimerListe(){
+  let list = dossiers.filter(d=> currentFilter==='all' || (currentFilter==='a_traiter' ? aTraiter(d) : d.etat===currentFilter));
+  const rows = list.map(d=>
+    '<tr><td>'+d.nom_client+' '+d.prenom_client+'</td>'+
+    '<td>'+(d.type_equipement||'')+'</td>'+
+    '<td>'+(d.mise_en_vente||'')+'</td>'+
+    '<td>'+(d.prix_vente!==''&&d.prix_vente!=null?d.prix_vente+' €':'')+'</td>'+
+    '<td>'+(d.prix_achat_monture!==''&&d.prix_achat_monture!=null?d.prix_achat_monture+' €':'')+'</td>'+
+    '<td>'+etatLabel(d.etat)+'</td>'+
+    '<td>'+(d.commentaire||'')+'</td>'+
+    '<td>'+(d.valide?'Oui':'Non')+'</td></tr>'
+  ).join('');
+  document.getElementById('print-container').innerHTML =
+    '<div class="print-header"><h1>EDGARD OPTICIENS — Dossiers commandés non facturés</h1>'+
+    '<div class="print-sub">Magasin : '+(magasin||'—')+' — Filtre : '+labelFiltre(currentFilter)+' ('+list.length+' dossier(s)) — Imprimé le '+new Date().toLocaleDateString('fr-FR')+'</div></div>'+
+    '<table><thead><tr><th>Client</th><th>Équipement</th><th>Mise en vente</th><th>Prix vente</th><th>Prix achat monture</th><th>État</th><th>Commentaire</th><th>Validé</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  window.print();
 }
 
 function afficherDossiers(){
