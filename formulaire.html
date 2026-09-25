@@ -6,6 +6,7 @@
 <title>Dossiers commandés non facturés</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#F5F4EF;color:#1a1a18;min-height:100vh;padding:1.5rem}
@@ -432,9 +433,16 @@ function buildRecapData(){
   const formulas = [];
   const moneyAddrs = [];
   const data = [];
+  const titleRows = new Set();
+  const headerRows = new Set();
+  const subtotalRows = new Set();
+  const alertRows = new Set();
+  let alertHeaderRow = -1;
   function excelRow(){ return data.length + 1; }
-  function pushTitle(txt, span){ data.push([txt]); merges.push({s:{r:data.length-1, c:0}, e:{r:data.length-1, c:span-1}}); }
+  function pushTitle(txt, span){ data.push([txt]); titleRows.add(data.length); merges.push({s:{r:data.length-1, c:0}, e:{r:data.length-1, c:span-1}}); }
   function pushRow(row){ data.push(row); }
+  function pushHeaderRow(row){ data.push(row); headerRows.add(data.length); }
+  function pushSubtotalRow(row){ data.push(row); subtotalRows.add(data.length); }
   function pushBlank(){ data.push([]); }
 
   pushTitle('RÉCAPITULATIF COMPTABLE', 9);
@@ -442,7 +450,7 @@ function buildRecapData(){
 
   // Section 1 — Facture à établir : A Client B Type C Mise en vente D Date livr E Verres F Vente TTC G Vente HT(=F/1.2) H TVA(=F-G) I Commentaire
   pushTitle('FACTURE À ÉTABLIR — Dossiers livrés non facturés', 9);
-  pushRow(['Client','Type équipement','Mise en vente','Date livraison','Verres réceptionnés','Prix vente TTC','Prix vente HT','TVA (20%)','Commentaire']);
+  pushHeaderRow(['Client','Type équipement','Mise en vente','Date livraison','Verres réceptionnés','Prix vente TTC','Prix vente HT','TVA (20%)','Commentaire']);
   const facFirstRow = excelRow();
   factureAEtablir.forEach(d=>{
     const row = excelRow();
@@ -454,7 +462,7 @@ function buildRecapData(){
   });
   const facLastRow = excelRow()-1;
   const facSubRow = excelRow();
-  pushRow(['SOUS-TOTAL ('+factureAEtablir.length+' dossiers)','','','','',null,null,null,'']);
+  pushSubtotalRow(['SOUS-TOTAL ('+factureAEtablir.length+' dossiers)','','','','',null,null,null,'']);
   if(factureAEtablir.length){
     formulas.push({addr:'F'+facSubRow, f:'SUM(F'+facFirstRow+':F'+facLastRow+')'});
     formulas.push({addr:'G'+facSubRow, f:'SUM(G'+facFirstRow+':G'+facLastRow+')'});
@@ -464,7 +472,7 @@ function buildRecapData(){
 
   // Section 2 — Travaux en cours : A Client B Type C Mise en vente D État E Achat HT (valeur brute) I Commentaire
   pushTitle('TRAVAUX EN COURS — Attente de verre + Annulé/Devis', 9);
-  pushRow(['Client','Type équipement','Mise en vente','État','Prix achat monture (HT)','','','','Commentaire']);
+  pushHeaderRow(['Client','Type équipement','Mise en vente','État','Prix achat monture (HT)','','','','Commentaire']);
   const travFirstRow = excelRow();
   travauxEnCours.forEach(d=>{
     const row = excelRow();
@@ -474,7 +482,7 @@ function buildRecapData(){
   });
   const travLastRow = excelRow()-1;
   const travSubRow = excelRow();
-  pushRow(['SOUS-TOTAL ('+travauxEnCours.length+' dossiers)','','','',null,'','','','']);
+  pushSubtotalRow(['SOUS-TOTAL ('+travauxEnCours.length+' dossiers)','','','',null,'','','','']);
   if(travauxEnCours.length){
     formulas.push({addr:'E'+travSubRow, f:'SUM(E'+travFirstRow+':E'+travLastRow+')'});
   }
@@ -482,7 +490,7 @@ function buildRecapData(){
 
   // Section 3 — Produits finis : A Client B Type C Mise en vente D Date livr E Vente TTC F Vente HT(=E/1.2) G Retenu(=F*0.92) I Commentaire
   pushTitle('PRODUITS FINIS — Attente de livraison', 9);
-  pushRow(['Client','Type équipement','Mise en vente','Date livraison','Prix vente TTC','Prix vente HT','Montant retenu (92% HT)','','Commentaire']);
+  pushHeaderRow(['Client','Type équipement','Mise en vente','Date livraison','Prix vente TTC','Prix vente HT','Montant retenu (92% HT)','','Commentaire']);
   const pfFirstRow = excelRow();
   produitsFinis.forEach(d=>{
     const row = excelRow();
@@ -494,7 +502,7 @@ function buildRecapData(){
   });
   const pfLastRow = excelRow()-1;
   const pfSubRow = excelRow();
-  pushRow(['SOUS-TOTAL ('+produitsFinis.length+' dossiers)','','','',null,null,null,'','']);
+  pushSubtotalRow(['SOUS-TOTAL ('+produitsFinis.length+' dossiers)','','','',null,null,null,'','']);
   if(produitsFinis.length){
     formulas.push({addr:'E'+pfSubRow, f:'SUM(E'+pfFirstRow+':E'+pfLastRow+')'});
     formulas.push({addr:'F'+pfSubRow, f:'SUM(F'+pfFirstRow+':F'+pfLastRow+')'});
@@ -509,12 +517,14 @@ function buildRecapData(){
     return achatHT > 0 && venteHT < achatHT;
   });
   pushTitle('ALERTES — Marge négative (vente HT < achat HT)', 9);
-  pushRow(['Client','Type équipement','Vente TTC','Vente HT','Achat HT','Écart','','','Commentaire']);
+  pushHeaderRow(['Client','Type équipement','Vente TTC','Vente HT','Achat HT','Écart','','','Commentaire']);
+  alertHeaderRow = excelRow() - 1;
   alertes.forEach(d=>{
     const row = excelRow();
     const ttc = round2(parsePrix(d.prix_vente));
     const achatHT = round2(parsePrix(d.prix_achat_monture));
     pushRow([d.nom_client+' '+d.prenom_client, d.type_equipement, ttc, null, achatHT, null, '', '', d.commentaire||'']);
+    alertRows.add(row);
     formulas.push({addr:'D'+row, f:'C'+row+'/1.2', v: round2(ttc/1.2)});
     formulas.push({addr:'F'+row, f:'D'+row+'-E'+row, v: round2(ttc/1.2-achatHT)});
     moneyAddrs.push('C'+row, 'E'+row);
@@ -527,37 +537,101 @@ function buildRecapData(){
   if(travauxEnCours.length) moneyAddrs.push('E'+travSubRow);
   if(produitsFinis.length) moneyAddrs.push('E'+pfSubRow,'F'+pfSubRow,'G'+pfSubRow);
 
-  return { data, merges, formulas, moneyAddrs };
+  return { data, merges, formulas, moneyAddrs, titleRows, headerRows, subtotalRows, alertRows, alertHeaderRow };
 }
 
-function buildXlsxBase64(){
-  const ACC_FORMAT = '_-* #,##0.00\\ "€"_-;-* #,##0.00\\ "€"_-;_-* "-"??\\ "€"_-;_-@_-';
-  const data = [['Client','Type équipement','Mise en vente le','Date de livraison','Verres réceptionnés','Prix de vente','Prix achat monture','État','Commentaire']];
-  dossiers.forEach(d=>{
-    data.push([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, parsePrix(d.prix_vente), parsePrix(d.prix_achat_monture), etatLabel(d.etat), d.commentaire||'']);
-  });
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:22},{wch:16},{wch:12},{wch:12},{wch:14},{wch:11},{wch:14},{wch:20},{wch:30}];
-  for(let r=2; r<=dossiers.length+1; r++){
-    ['F','G'].forEach(col=>{ if(ws[col+r]) ws[col+r].z = ACC_FORMAT; });
+function arrayBufferToBase64(buffer){
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for(let i=0; i<bytes.length; i+=chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
   }
+  return window.btoa(binary);
+}
 
+// Couleurs de la charte Groupe Edgard, reprises pour la mise en forme Excel (ARGB, sans '#')
+const XL_GOLD = 'FFB8982A';
+const XL_GOLD_LIGHT = 'FFFAEEDA';
+const XL_GREEN = 'FF3B6D11';
+const XL_GREEN_LIGHT = 'FFEAF3DE';
+const XL_RED = 'FFA32D2D';
+const XL_RED_LIGHT = 'FFFCEBEB';
+const XL_WHITE = 'FFFFFFFF';
+const ACC_FORMAT = '#,##0.00\\ "€";-#,##0.00\\ "€"';
+
+async function buildXlsxBase64(){
+  const wb = new ExcelJS.Workbook();
+
+  // --- Feuille 1 : Dossiers non facturés ---
+  const ws = wb.addWorksheet('Dossiers non factures');
+  ws.columns = [
+    {header:'Client', width:22}, {header:'Type équipement', width:16},
+    {header:'Mise en vente le', width:12}, {header:'Date de livraison', width:12},
+    {header:'Verres réceptionnés', width:14}, {header:'Prix de vente', width:11},
+    {header:'Prix achat monture', width:14}, {header:'État', width:20},
+    {header:'Commentaire', width:30}
+  ];
+  const headerRow = ws.getRow(1);
+  headerRow.eachCell(c=>{
+    c.font = {bold:true, color:{argb:XL_WHITE}};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:XL_GOLD}};
+    c.alignment = {vertical:'middle'};
+  });
+  dossiers.forEach(d=>{
+    const row = ws.addRow([d.nom_client+' '+d.prenom_client, d.type_equipement, d.mise_en_vente, d.date_livraison, d.verres_receptionnes, parsePrix(d.prix_vente), parsePrix(d.prix_achat_monture), etatLabel(d.etat), d.commentaire||'']);
+    row.getCell(6).numFmt = ACC_FORMAT;
+    row.getCell(7).numFmt = ACC_FORMAT;
+  });
+
+  // --- Feuille 2 : Récapitulatif comptable ---
   const recap = buildRecapData();
-  const wsRecap = XLSX.utils.aoa_to_sheet(recap.data);
-  wsRecap['!merges'] = recap.merges;
-  wsRecap['!cols'] = [{wch:22},{wch:16},{wch:12},{wch:12},{wch:16},{wch:14},{wch:18},{wch:6},{wch:30}];
+  const wsRecap = wb.addWorksheet('Recapitulatif comptable');
+  wsRecap.columns = [{width:22},{width:16},{width:12},{width:12},{width:16},{width:14},{width:18},{width:6},{width:30}];
+
+  recap.data.forEach((rowData, idx)=>{
+    const excelRowNum = idx + 1;
+    const row = wsRecap.addRow(rowData.length ? rowData : ['']);
+    if(!rowData.length) return; // ligne vide de séparation
+
+    const isTitle = recap.titleRows.has(excelRowNum);
+    const isHeader = recap.headerRows.has(excelRowNum);
+    const isSubtotal = recap.subtotalRows.has(excelRowNum);
+    const isAlertHeader = excelRowNum === recap.alertHeaderRow;
+
+    if(isTitle){
+      row.getCell(1).font = {bold:true, color:{argb:XL_WHITE}, size:12};
+      row.eachCell({includeEmpty:true}, c=>{ c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:XL_GOLD}}; });
+    } else if(isHeader){
+      row.eachCell(c=>{
+        c.font = {bold:true};
+        c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:XL_GOLD_LIGHT}};
+      });
+    } else if(isSubtotal){
+      row.eachCell({includeEmpty:true}, c=>{
+        c.font = {bold:true};
+        c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:XL_GREEN_LIGHT}};
+      });
+    } else if(recap.alertRows.has(excelRowNum) && excelRowNum > recap.alertHeaderRow){
+      row.eachCell({includeEmpty:true}, c=>{ c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:XL_RED_LIGHT}}; });
+      row.getCell(1).font = {color:{argb:XL_RED}};
+    }
+  });
+
+  recap.merges.forEach(m=>{
+    // m = {s:{r,c}, e:{r,c}} avec r,c en index 0-based (format SheetJS d'origine)
+    wsRecap.mergeCells(m.s.r+1, m.s.c+1, m.e.r+1, m.e.c+1);
+  });
   recap.formulas.forEach(fm=>{
-    wsRecap[fm.addr] = { t:'n', f: fm.f };
-    if(typeof fm.v === 'number') wsRecap[fm.addr].v = fm.v;
+    const cell = wsRecap.getCell(fm.addr);
+    cell.value = { formula: fm.f, result: typeof fm.v === 'number' ? fm.v : undefined };
   });
   recap.moneyAddrs.forEach(addr=>{
-    if(wsRecap[addr]) wsRecap[addr].z = ACC_FORMAT;
+    wsRecap.getCell(addr).numFmt = ACC_FORMAT;
   });
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Dossiers non factures');
-  XLSX.utils.book_append_sheet(wb, wsRecap, 'Recapitulatif comptable');
-  return XLSX.write(wb, {type:'base64', bookType:'xlsx'});
+  const buffer = await wb.xlsx.writeBuffer();
+  return arrayBufferToBase64(buffer);
 }
 function etatLabel(e){
   if(e==='attente_verre') return 'En attente de verre';
@@ -566,7 +640,7 @@ function etatLabel(e){
   return 'Livré non facturé';
 }
 
-function validateEnvoi(){
+async function validateEnvoi(){
   const nom = document.getElementById('sig-nom').value.trim();
   if(!nom){
     document.getElementById('alert-envoi').innerHTML =
@@ -586,7 +660,16 @@ function validateEnvoi(){
   const btn = document.getElementById('btn-envoyer');
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.8s linear infinite;display:inline-block"></i> Envoi en cours…';
-  const xlsxData = buildXlsxBase64();
+  let xlsxData;
+  try {
+    xlsxData = await buildXlsxBase64();
+  } catch(e){
+    document.getElementById('alert-envoi').innerHTML =
+      '<div class="alert alert-error"><i class="ti ti-alert-circle"></i>Erreur lors de la génération du fichier Excel : '+e.message+'</div>';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-send" style="font-size:16px"></i> Envoyer à Déborah';
+    return;
+  }
   fetch('https://edgard-opticiens.app.n8n.cloud/webhook/dossiers-reception',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
